@@ -26,22 +26,17 @@ src/engine
 
 # Running the Project
 
-## Build Docker Environment (Haven't write the file yet hehe)
+## Build Environment 
 
 ```bash
-docker compose build
+make build
 ```
+> NOTE: Use when modify requirements.txt
 
 ## Run the Engine
 
 ```bash
-docker compose run --rm chess-engine
-```
-
-## Run Tests
-
-```bash
-docker compose run --rm chess-engine pytest
+make run
 ```
 
 ---
