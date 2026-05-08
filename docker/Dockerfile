@@ -1,19 +1,26 @@
-# Choose Python version
-FROM python:3.11
+# Dockerfile is used to build image
+FROM python:3.11-slim
+
+# Prevent Python from writing .pyc files
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Enable stdout/stderr logging immediately
+ENV PYTHONUNBUFFERED=1
 
 # Set working directory
 WORKDIR /app
 
-# Copy requirements and setting
+# Copy dependency file first for better Docker cache usage
 COPY requirements.txt .
+
+# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy full project
+# Copy project files
 COPY . .
 
-# It is not working
-# # Thêm Python path để import src/engine dễ dàng
-# ENV PYTHONPATH=/app/src
+# Allow importing from src/
+ENV PYTHONPATH=/app/src
 
-# # Mặc định mở Python interactive shell
-# CMD ["python3"]
+# Default command
+CMD ["python", "-m", "engine.main"]

@@ -1,18 +1,1 @@
-# Thư viện tính toán & Machine Learning
-pandas
-numpy
-scikit-learn
-scipy
-
-# Thư viện Visualization
-matplotlib
-seaborn
-
-# Thư viện chuyên dụng
 python-chess
-tqdm
-stockfish
-
-# Tiện ích khác
-joblib
-ipykernel

@@ -1,0 +1,15 @@
+# docker-compose file can run multiple containers
+# each container is a service
+services:
+  # chess-engine is a service 
+  chess-engine:
+    build: 
+      context: . # docker can access files from this directory during build
+      dockerfile: docker/Dockerfile
+
+    volumes: # ensure persistent data between restart, updates, removal at location app
+      - .:/app # put at app during development but can be a DB
+
+    stdin_open: true # keep standard input open
+    tty: true # allocate terminal inside container
+    # the two above make the container behave like a normal terminal app
