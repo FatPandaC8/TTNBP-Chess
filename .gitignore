@@ -1,0 +1,11 @@
+# VSCode
+.vscode
+
+# Cache
+__pycache__
+
+# Macos
+.DS_Store
+
+# Workspace
+*.code-workspace
