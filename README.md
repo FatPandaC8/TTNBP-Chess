@@ -93,5 +93,6 @@ src/engine/board/
 
 Put config variables in the config folder with the format:
 config/module_name/config.yml
-```
+
+Hiện tại, sẽ dùng jupyter để xem bước đi, xong cuối cùng sẽ hướng về UCI để chỗ khác render thay mình.
 ```
