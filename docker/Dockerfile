@@ -1,26 +1,20 @@
-# Dockerfile is used to build image
-FROM python:3.11-slim
-
-# Prevent Python from writing .pyc files
-ENV PYTHONDONTWRITEBYTECODE=1
-
-# Enable stdout/stderr logging immediately
-ENV PYTHONUNBUFFERED=1
-
-# Set working directory
+FROM python:3.11-slim AS base
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/src
 WORKDIR /app
 
-# Copy dependency file first for better Docker cache usage
+FROM base AS engine
 COPY requirements.txt .
-
-# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy project files
 COPY . .
-
-# Allow importing from src/
-ENV PYTHONPATH=/app/src
-
-# Default command
 CMD ["python", "-m", "engine.main"]
+
+FROM base AS notebook
+COPY requirements.txt .
+# Install engine deps + jupyter
+RUN pip install --no-cache-dir -r requirements.txt jupyter
+COPY . .
+# Expose port 8888 for the web UI
+EXPOSE 8888
+CMD ["jupyter", "notebook", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=''"]

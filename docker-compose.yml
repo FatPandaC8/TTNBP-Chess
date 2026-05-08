@@ -6,6 +6,7 @@ services:
     build: 
       context: . # docker can access files from this directory during build
       dockerfile: docker/Dockerfile
+      target: engine
 
     volumes: # ensure persistent data between restart, updates, removal at location app
       - .:/app # put at app during development but can be a DB
@@ -13,3 +14,15 @@ services:
     stdin_open: true # keep standard input open
     tty: true # allocate terminal inside container
     # the two above make the container behave like a normal terminal app
+
+  analysis:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: notebook # Tells Docker to use the 'notebook' stage
+
+    ports:
+      - "8888:8888"
+
+    volumes:
+      - .:/app
