@@ -6,7 +6,7 @@ class ChessBoard:
 
     # Get information from the chess board
     def legal_moves(self):
-        return list(self.board.legal_moves)
+        return self.board.legal_moves
     
     def turn(self):
         return self.board.turn
@@ -27,6 +27,12 @@ class ChessBoard:
     
     def pieces(self, piece_type, color):
         return self.board.pieces(piece_type, color)
+    
+    def is_checkmate(self):
+        return self.board.is_checkmate()
+
+    def is_stalemate(self):
+        return self.board.is_stalemate()
     
     # Actions to modify the chess board
     def push(self, move):
