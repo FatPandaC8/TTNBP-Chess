@@ -14,15 +14,3 @@ services:
     stdin_open: true # keep standard input open
     tty: true # allocate terminal inside container
     # the two above make the container behave like a normal terminal app
-
-  analysis:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-      target: notebook # Tells Docker to use the 'notebook' stage
-
-    ports:
-      - "8888:8888"
-
-    volumes:
-      - .:/app
