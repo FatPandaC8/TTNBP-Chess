@@ -52,18 +52,3 @@ class Evaluator:
             return score
 
 
-if __name__ == "__main__":
-    evaluator = Evaluator()
-    # FEN giống hệt bài test của bạn
-    board = chess.Board("rnbqkb1r/p1pp1ppp/1p3n2/4N3/4P3/8/PPPP1PPP/RNBQKB1R w KQkq - 0 4")
-    
-    start_time = time.perf_counter()
-    
-    # Chạy thử lượng giá
-    score = evaluator.evaluate(board)
-    
-    duration = time.perf_counter() - start_time
-    
-    print(f"Evaluation Score: {score}")
-    # Đổi sang format giây / mili-giây
-    print(f"Test took: {duration:.6f} seconds ({duration * 1000:.3f} ms)")
