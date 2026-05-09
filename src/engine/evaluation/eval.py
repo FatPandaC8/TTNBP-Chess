@@ -1,65 +1,69 @@
 import chess
-from engine.board.board import ChessBoard
-from engine.evaluation.features.material import material
-from engine.evaluation.features.piece_square import piece_square
-from engine.evaluation.features.mobility import mobility_score
-from engine.evaluation.features.king_safety import king_attack_score
-from engine.evaluation.features.pawn_structure import pawn_structure_score
-from engine.utils.loader import load_config
-from engine.utils import (
-    is_endgame,
-    hanging_penalty,
-)
-
-def diff(board, feature_func):
-    return feature_func(board, chess.WHITE) - feature_func(board, chess.BLACK)
+import time
+from engine.evaluation.constants.piece_square_tables import PHASE_INC, OPENING_PST, ENDGAME_PST
 
 class Evaluator:
-    def __init__(self, config_path):
-        self.cfg = load_config(config_path)
+    """
+    Bộ lượng giá tĩnh (Static Evaluation) tối ưu bằng Python.
+    Sử dụng Tapered Evaluation (Nội suy Khai cuộc - Tàn cuộc) và Piece-Square Tables.
+    """
+    
+    def evaluate(self, board: chess.Board) -> int:
+        opening_score = 0
+        endgame_score = 0
+        phase = 0
 
-    # Vì chỉ có mỗi một cái implementation của Evaluator nên bách implement luôn thay vì viết interface
-    def evaluate(self, board: ChessBoard, depth=0, debug=False) -> int:
-        endgame = is_endgame(board)
+        # Tối ưu hóa: Lặp qua từng LOẠI QUÂN thay vì lặp qua 64 ô
+        for piece_type in range(1, 7): # Từ PAWN (1) đến KING (6)
+            phase_weight = PHASE_INC[piece_type]
+            op_table = OPENING_PST[piece_type]
+            eg_table = ENDGAME_PST[piece_type]
 
-        score = 0
+            # 1. QUÂN TRẮNG (Không cần lật bàn cờ)
+            # board.pieces() trả về một SquareSet cực nhanh (Bitboard)
+            for sq in board.pieces(piece_type, chess.WHITE):
+                opening_score += op_table[sq]
+                endgame_score += eg_table[sq]
+                phase += phase_weight
 
-        # Terminal 
-        checkmate_penal = self.cfg["checkmate_penalty"]
-        if board.is_checkmate():
-            return -check_penal + depth if board.turn() == chess.WHITE else checkmate_penal - depth
+            # 2. QUÂN ĐEN (Cần lật bàn cờ)
+            for sq in board.pieces(piece_type, chess.BLACK):
+                # Phép XOR 56 giúp đảo lộn ô cờ (VD: a8 (56) -> a1 (0))
+                sq_flipped = sq ^ 56
+                
+                # Trừ điểm vì Đen có lợi thế ở ô này
+                opening_score -= op_table[sq_flipped]
+                endgame_score -= eg_table[sq_flipped]
+                phase += phase_weight
 
+        # 3. Tính toán Tapered Evaluation (Nội suy)
+        # Bóp phase về giới hạn tối đa là 24
+        opening_phase = min(phase, 24)
+        endgame_phase = 24 - opening_phase
 
-        if board.is_stalemate() or board.is_insufficient_material():
-            return 0
-        
+        # Tính tổng điểm nội suy. Trắng dương, Đen âm.
+        score = (opening_score * opening_phase + endgame_score * endgame_phase) // 24
 
-        # Core features 
-        score += material(board)
-        score += piece_square(board, endgame)
-
-
-        # Check pressure 
-        check_penal = self.cfg["check_penalty"]
-        if board.is_check():
-            score += check_penal if board.turn == chess.WHITE else check_penal
-
-
-        # Advanced features 
-        score += self.cfg["mobility_weight"] * diff(board, mobility_score) 
-        score += self.cfg["features"]["king_attack"] * diff(board, king_attack_score) 
-        score += self.cfg["features"]["pawn_structure"] * diff(board, pawn_structure_score) 
-        score += self.cfg["features"]["hanging"] * diff(board, hanging_penalty)
-
-
-        # Tempo 
-        tempo = self.cfg["turn_bonus"] 
-        score += tempo if board.turn() == chess.WHITE else -tempo
+        # 4. Trả về điểm theo góc nhìn của người đang đến lượt (Active Color)
+        # Trong thuật toán NegaMax, người đang đi luôn muốn điểm dương.
+        if board.turn == chess.BLACK:
+            return -score
+        else:
+            return score
 
 
-        if debug:
-            print("material:", material(board))
-            print("pst:", piece_square(board, endgame))
-            print("mobility:", diff(board, mobility_score))
-
-        return score
+if __name__ == "__main__":
+    evaluator = Evaluator()
+    # FEN giống hệt bài test của bạn
+    board = chess.Board("rnbqkb1r/p1pp1ppp/1p3n2/4N3/4P3/8/PPPP1PPP/RNBQKB1R w KQkq - 0 4")
+    
+    start_time = time.perf_counter()
+    
+    # Chạy thử lượng giá
+    score = evaluator.evaluate(board)
+    
+    duration = time.perf_counter() - start_time
+    
+    print(f"Evaluation Score: {score}")
+    # Đổi sang format giây / mili-giây
+    print(f"Test took: {duration:.6f} seconds ({duration * 1000:.3f} ms)")
