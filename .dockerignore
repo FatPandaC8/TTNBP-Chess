@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ipynb_checkpoint/
+
+.venv/
+venv/
+
+.git/
+.gitignore
+
+.DS_Store
+Thumbs.db
+
+docker-compose.yml
+.dockerignore

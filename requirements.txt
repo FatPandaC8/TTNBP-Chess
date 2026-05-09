@@ -1,1 +1,3 @@
 python-chess
+PyYAML
+pytest
