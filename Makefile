@@ -4,5 +4,5 @@ build:
 run:
 	docker compose run --rm chess-engine
 
-test: # haven't implemented yet
-	docker compose run --rm chess-engine pytest
+test:
+	docker compose run --rm chess-engine pytest tests/

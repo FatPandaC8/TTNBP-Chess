@@ -3,13 +3,11 @@
 from engine.board.board import ChessBoard
 from engine.evaluation.eval import Evaluator
 
-def main():
+def test_eval():
     board = ChessBoard()
-    evaluator = Evaluator()
-
+    evaluator = Evaluator("config/evaluation/eval.yaml")
     score = evaluator.evaluate(board)
 
     print("Score:", score)
 
-if __name__ == "__main__":
-    main()
+    assert isinstance(score, int)

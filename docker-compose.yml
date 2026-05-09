@@ -11,6 +11,11 @@ services:
     volumes: # ensure persistent data between restart, updates, removal at location app
       - .:/app # put at app during development but can be a DB
 
+    working_dir: /app
+
     stdin_open: true # keep standard input open
     tty: true # allocate terminal inside container
     # the two above make the container behave like a normal terminal app
+
+    environment:
+      - PYTHONPATH=/app/src

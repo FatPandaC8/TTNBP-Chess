@@ -1,0 +1,9 @@
+turn_bonus: 25
+mobility_weight: 5
+check_penalty: 50
+checkmate_penalty: 1000000
+
+features:
+  king_attack: 1
+  pawn_structure: 1
+  hanging: 1
