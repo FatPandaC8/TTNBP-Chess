@@ -33,6 +33,30 @@ class ChessBoard:
 
     def is_stalemate(self):
         return self.board.is_stalemate()
+
+    def piece_map(self):
+        return self.board.piece_map()
+
+    def piece_at(self, square):
+        return self.board.piece_at(square)
+
+    def king(self, color):
+        return self.board.king(color)
+
+    def attacks(self, square):
+        return self.board.attacks(square)
+
+    def is_attacked_by(self, color, square):
+        return self.board.is_attacked_by(color, square)
+
+    def fullmove_number(self):
+        return self.board.fullmove_number
+    
+    def is_insufficient_material(self):
+        return self.board.is_insufficient_material()
+    
+    def is_check(self):
+        return self.board.is_check()
     
     # Actions to modify the chess board
     def push(self, move):
