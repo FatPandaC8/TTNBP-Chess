@@ -5,16 +5,20 @@ from ..Cache.Tranposition_Table import TranspositionTable  , TT_EXACT, TT_LOWER,
 import chess.polyglot
 from  ..heuristic.history import HistoryTable
 from ..heuristic.killer_move import KillerMoves
+from . import Search
 
 INFINITY = 9999999
 NEGATIVE_INFINITY = -INFINITY
 CHECKMATE_SCORE = 9000000
 
 
+
 LMR_FULL_DEPTH_MOVES = 4
 LMR_REDUCTION_LIMIT = 3
 NULL_MOVE_REDUCTION = 3
 NULL_MOVE_MIN_DEPTH = 3
+ASPIRATION_MIN_DEPTH = 4
+ASPIRATION_DELTA = 50
 
 class SearchTimer:
     """Quản lý thời gian và đếm Nodes"""
@@ -37,7 +41,7 @@ class SearchTimer:
             return (time.perf_counter() - self.start_time) >= self.time_limit
         return False
 
-class Searcher:
+class Searcher(Search):
     def __init__(self):
         self.evaluator = Evaluator()
         self.tt = TranspositionTable()
@@ -129,12 +133,12 @@ class Searcher:
         if not moves:
             # Nếu không có nước đi hợp lệ, kiểm tra xem có phải là checkmate hay stalemate
             if board.board.is_check():
-                return -999999 + ply  # Checkmate, trừ đi ply để ưu tiên chiến thắng nhanh hơn
+                return NEGATIVE_INFINITY + ply  # Checkmate, trừ đi ply để ưu tiên chiến thắng nhanh hơn
             else:
                 return 0  # Stalemate, hòa
             
         self._order_moves(board, moves, tt_best_move, ply)
-        best_score = -999999
+        best_score = NEGATIVE_INFINITY
         best_move_this_node = None
         moves_searched = 0 # Đếm số nước đã xét (dùng cho LMR)
         
@@ -221,5 +225,67 @@ class Searcher:
 
         self.tt.store(hash_key, best_score, best_move_this_node, depth, bound)
         return best_score
+    
+    def get_best_move(self, board: chess.Board, depth: int, time_limit: float=None) -> tuple[int, chess.Move]:
+        """
+        Iterative Deepening + Aspiration Windows.
+
+        Ý tưởng Aspiration Windows:
+        - Thay vì search với cửa sổ [-INF, +INF], ta dùng cửa sổ hẹp
+          [prev_score - delta, prev_score + delta].
+        - Nếu kết quả nằm ngoài cửa sổ (fail-low hoặc fail-high),
+          ta mở rộng cửa sổ ra và search lại.
+        - Lợi ích: Cắt tỉa nhiều hơn khi score nằm trong cửa sổ.
+        - Rủi ro: Phải search lại nếu score nằm ngoài (nhưng rất hiếm).
+        """
+
+        self.timer.start(time_limit)
+        self.history_table.age()  
+        best_move = None
+        best_score = NEGATIVE_INFINITY
+        prev_score = 0
+
+        for current_depth in range(1, depth + 1):
+            if self.timer.should_stop():
+                break
+            if current_depth >= ASPIRATION_MIN_DEPTH:
+                # Bắt đầu với cửa sổ hẹp quanh score trước
+                alpha = prev_score - ASPIRATION_DELTA
+                beta  = prev_score + ASPIRATION_DELTA
+                delta = ASPIRATION_DELTA
+
+                while True:
+                    score = self._negamax(board, current_depth, 0, alpha, beta, null_move_allowed=True)
+
+                    if self.timer.should_stop():
+                        break
+
+                    if score <= alpha:
+                        # Fail-low: mở rộng cửa sổ về phía âm
+                        alpha = max(alpha - delta, NEGATIVE_INFINITY)
+                        delta *= 2  # Tăng delta mỗi lần fail
+                    elif score >= beta:
+                        # Fail-high: mở rộng cửa sổ về phía dương
+                        beta = min(beta + delta, INFINITY)
+                        delta *= 2
+                    else:
+                        # Nằm trong cửa sổ -> kết quả hợp lệ
+                        break
+            else:
+                # Depth thấp (1-3): dùng cửa sổ full để tránh fail sớm
+                score = self._negamax(board, current_depth, 0, NEGATIVE_INFINITY, INFINITY, null_move_allowed=True)
+
+            if not self.timer.should_stop():
+                best_score = score
+                prev_score = score  # Lưu lại để depth tiếp theo dùng
+
+                tt_entry = self.tt.retrieve(board.get_key())
+                if tt_entry and tt_entry.best_move:
+                    best_move = tt_entry.best_move
+
+                print(f"info depth {current_depth} score cp {best_score} " f"nodes {self.timer.nodes} pv {best_move}")
+
+        return best_score, best_move
+
 
 
