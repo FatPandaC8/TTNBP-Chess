@@ -25,3 +25,8 @@ class KillerMoves:
 
     def clear(self):
         self.moves = [[None, None] for _ in range(MAX_PLY)]
+
+    def get_killers(self, ply: int) -> list:
+        if ply >= MAX_PLY:
+            return []
+        return [m for m in self.moves[ply] if m is not None]
