@@ -1,8 +1,8 @@
-# Main.py should just be an entry point
+from engine.engine import Engine
 
 def main():
-    print("Chess engine started")
-
+    engine = Engine()
+    engine.run()
 
 if __name__ == "__main__":
     main()
