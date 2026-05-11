@@ -6,6 +6,7 @@ WORKDIR /app
 
 FROM base AS engine
 COPY requirements.txt .
+RUN apt-get update && apt-get install -y make
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 CMD ["python", "-m", "engine.main"]
