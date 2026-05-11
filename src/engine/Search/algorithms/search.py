@@ -299,11 +299,3 @@ class Searcher(Search):
                 print(f"info depth {current_depth} score cp {best_score} " f"nodes {self.timer.nodes} pv {best_move}")
 
         return best_score, best_move
-
-
-
-if __name__ == "__main__":
-    board = chess.Board()
-    searcher = Searcher()
-    score, best_move = searcher.search(board, depth=4, time_limit=5.0)
-    print(f"Best Move: {best_move}, Score: {score}")
