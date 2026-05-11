@@ -226,7 +226,7 @@ class Searcher(Search):
         self.tt.store(hash_key, best_score, best_move_this_node, depth, bound)
         return best_score
     
-    def Search(self, board: chess.Board, depth: int, time_limit: float=None) -> tuple[int, chess.Move]:
+    def search(self, board: chess.Board, depth: int, time_limit: float=None) -> tuple[int, chess.Move]:
         """
         Iterative Deepening + Aspiration Windows.
 
