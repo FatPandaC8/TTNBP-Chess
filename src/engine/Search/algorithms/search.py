@@ -5,7 +5,7 @@ from ..Cache.Tranposition_Table import TranspositionTable  , TT_EXACT, TT_LOWER,
 import chess.polyglot
 from  ..heuristic.history import HistoryTable
 from ..heuristic.killer_move import KillerMoves
-from . import Search
+from ..base import Search
 
 INFINITY = 9999999
 NEGATIVE_INFINITY = -INFINITY
@@ -51,21 +51,22 @@ class Searcher(Search):
         
     
     def _quiescence(self, board: chess.Board, alpha: int, beta: int) -> int:
-        stand_pat = self.evaluator.evaluate(board.board)
+        stand_pat = self.evaluator.evaluate(board)
         if stand_pat >= beta:
             return beta
         if alpha < stand_pat:
             alpha = stand_pat
 
-        for move in board.generate_legal_captures():
-            board.push(move)
-            score = -self._quiescence(board, -beta, -alpha)
-            board.pop()
+        for move in board.legal_moves:
+            if board.is_capture(move):
+                board.push(move)
+                score = -self._quiescence(board, -beta, -alpha)
+                board.pop()
 
-            if score >= beta:
-                return beta
-            if score > alpha:
-                alpha = score
+                if score >= beta:
+                    return beta
+                if score > alpha:
+                    alpha = score
 
         return alpha
     
@@ -97,7 +98,7 @@ class Searcher(Search):
         original_alpha = alpha
         if ply > 0 and (board.can_claim_fifty_moves() or board.is_repetition(2)):
             return 0  # Hòa do lặp lại hoặc luật 50 nước
-        hash_key = chess.polyglot.zobrist_hash(board.board)
+        hash_key = chess.polyglot.zobrist_hash(board)
         tt_entry = self.tt.retrieve(hash_key)
         tt_best_move = None
         if tt_entry:
@@ -113,12 +114,12 @@ class Searcher(Search):
                     return tt_entry.score
                 
 
-        if depth == 0:
+        if depth <= 0:
             return self._quiescence(board, alpha, beta)
         
         # Null Move Pruning
         if (null_move_allowed and depth >= NULL_MOVE_MIN_DEPTH 
-            and not board.board.is_check() and self.can_not_is_zugzwang(board)):
+            and not board.is_check() and self.can_not_is_zugzwang(board)):
             board.push(chess.Move.null())
 
             null_score = -self._negamax(board, depth - 1 - NULL_MOVE_REDUCTION, -beta, -beta + 1, ply + 1, False)
@@ -129,10 +130,10 @@ class Searcher(Search):
             if null_score >= beta:
                 return null_score
             
-        moves = board.generate_legal_moves()
+        moves = list(board.legal_moves)
         if not moves:
             # Nếu không có nước đi hợp lệ, kiểm tra xem có phải là checkmate hay stalemate
-            if board.board.is_check():
+            if board.is_check():
                 return NEGATIVE_INFINITY + ply  # Checkmate, trừ đi ply để ưu tiên chiến thắng nhanh hơn
             else:
                 return 0  # Stalemate, hòa
@@ -145,10 +146,11 @@ class Searcher(Search):
         for move in moves:
             if self.timer.should_stop():
                 return 0
-            is_capture = board.board.is_capture(move)
+            is_capture = board.is_capture(move)
+            
+            gives_check = board.gives_check(move)
+            
             board.push(move)
-            gives_check = board.board.gives_check(move)
-
             # LATE MOVE REDUCTION (LMR) 
             # Ý tưởng: Các nước đi xếp SAU (late moves) thường tệ hơn.
             # Ta search chúng với depth nhỏ hơn. Nếu chúng vẫn tốt hơn alpha,
@@ -162,13 +164,20 @@ class Searcher(Search):
             # - Đang chiếu hoặc nước này tạo chiếu
             # - Killer move (nước đã từng tạo beta-cutoff)
 
+            is_killer = False
+            try:
+                if move == self.killer_moves.moves[ply][0] or move == self.killer_moves.moves[ply][1]:
+                    is_killer = True
+            except IndexError:
+                pass
+
             use_lmr = (moves_searched >= LMR_FULL_DEPTH_MOVES 
                        and depth >= LMR_REDUCTION_LIMIT 
                        and not is_capture 
                        and not move.promotion
                        and not board.is_check()
                        and not gives_check
-                       and move not in (self.killer_moves.moves[ply][0], self.killer_moves.moves[ply][1]))
+                       and not is_killer)
             
 
             # PVS: Nước đầu tiên — search full window
@@ -195,13 +204,13 @@ class Searcher(Search):
                 if score > alpha:
                     score = -self._negamax(board, depth - 1, -beta, -alpha, ply + 1, True)
             else:
-                # === PVS: nước sau thông thường → null window trước ===
+                # PVS: nước sau thông thường → null window trước
                 # Giả định nước đầu tốt nhất, nước sau chỉ cần chứng minh tệ hơn alpha.
-                score = -self._negamax(board, depth - 1, ply + 1, -alpha - 1, -alpha, null_move_allowed=True)
+                score = -self._negamax(board, depth - 1,  -alpha - 1, -alpha, ply + 1, True)
 
                 # Nếu bất ngờ tốt hơn (PVS fail-high) → re-search full window
                 if score > alpha:
-                    score = -self._negamax(board, depth - 1, ply + 1, -beta, -alpha, null_move_allowed=True)
+                    score = -self._negamax(board, depth - 1,  -beta, -alpha, ply + 1, True)
 
             board.pop()
             moves_searched += 1
@@ -255,7 +264,7 @@ class Searcher(Search):
                 delta = ASPIRATION_DELTA
 
                 while True:
-                    score = self._negamax(board, current_depth, 0, alpha, beta, null_move_allowed=True)
+                    score = self._negamax(board, current_depth, alpha, beta, 0, True)
 
                     if self.timer.should_stop():
                         break
@@ -273,13 +282,13 @@ class Searcher(Search):
                         break
             else:
                 # Depth thấp (1-3): dùng cửa sổ full để tránh fail sớm
-                score = self._negamax(board, current_depth, 0, NEGATIVE_INFINITY, INFINITY, null_move_allowed=True)
+                score = self._negamax(board, current_depth, NEGATIVE_INFINITY, INFINITY, 0, True)
 
             if not self.timer.should_stop():
                 best_score = score
                 prev_score = score  # Lưu lại để depth tiếp theo dùng
 
-                tt_entry = self.tt.retrieve(board.get_key())
+                tt_entry = self.tt.retrieve(chess.polyglot.zobrist_hash(board))
                 if tt_entry and tt_entry.best_move:
                     best_move = tt_entry.best_move
 
@@ -289,3 +298,8 @@ class Searcher(Search):
 
 
 
+if __name__ == "__main__":
+    board = chess.Board()
+    searcher = Searcher()
+    score, best_move = searcher.search(board, depth=4, time_limit=5.0)
+    print(f"Best Move: {best_move}, Score: {score}")

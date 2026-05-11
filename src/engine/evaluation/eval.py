@@ -1,6 +1,5 @@
 import chess
 from engine.evaluation.constants.piece_square_tables import PHASE_INC, OPENING_PST, ENDGAME_PST
-from engine.board.board import ChessBoard
 
 class Evaluator:
     """
@@ -8,7 +7,7 @@ class Evaluator:
     Sử dụng Tapered Evaluation (Nội suy Khai cuộc - Tàn cuộc) và Piece-Square Tables.
     """
     
-    def evaluate(self, board: ChessBoard) -> int:
+    def evaluate(self, board: chess.Board) -> int:
         opening_score = 0
         endgame_score = 0
         phase = 0
