@@ -49,24 +49,36 @@ class Searcher(Search):
         self.history_table = HistoryTable()
         self.killer_moves = KillerMoves()
         
+    def _order_moves(self, board: chess.Board, moves: list, tt_move: chess.Move, ply: int):
+        pass  # TODO: Thêm move ordering heuristics (ví dụ: MVV/LVA, killer moves, history heuristic)
     
+    
+    def _order_captures(self, board: chess.Board, moves: list):
+        pass  # TODO: Sắp xếp nước bắt quân theo MVV/LVA
+
     def _quiescence(self, board: chess.Board, alpha: int, beta: int) -> int:
+        self.timer.nodes += 1
         stand_pat = self.evaluator.evaluate(board)
         if stand_pat >= beta:
             return beta
         if alpha < stand_pat:
             alpha = stand_pat
 
-        for move in board.legal_moves:
-            if board.is_capture(move):
-                board.push(move)
-                score = -self._quiescence(board, -beta, -alpha)
-                board.pop()
+        captures = list(board.generate_legal_moves(to_mask=board.occupied_co[not board.turn]))
+        self._order_captures(board, captures)
 
-                if score >= beta:
-                    return beta
-                if score > alpha:
-                    alpha = score
+        for move in captures:
+            if self.timer.should_stop():
+                return 0
+                
+            board.push(move)
+            score = -self._quiescence(board, -beta, -alpha)
+            board.pop()
+
+            if score >= beta:
+                return beta
+            if score > alpha:
+                alpha = score
 
         return alpha
     
@@ -82,14 +94,6 @@ class Searcher(Search):
             or board.pieces(chess.QUEEN, color)
         )
     
-
-    def _order_moves(self, board: chess.Board, moves: list, tt_move: chess.Move, ply: int):
-        pass  # TODO: Thêm move ordering heuristics (ví dụ: MVV/LVA, killer moves, history heuristic)
-    
-    
-    def _order_captures(self, board: chess.Board, moves: list):
-        pass  # TODO: Sắp xếp nước bắt quân theo MVV/LVA
-
 
     # negamax với alpha-beta pruning và bảng chuyển vị (transposition table) và null move pruning
 
