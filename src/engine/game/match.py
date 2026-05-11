@@ -30,7 +30,7 @@ class Match:
             self.validate_move(move)
 
         except Exception as e:
-            raise RuntimeError(f"Agent failed: {agent}") from e
+            raise e
 
         self.board.push(move)
         return move

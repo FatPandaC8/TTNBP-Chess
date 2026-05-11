@@ -6,6 +6,7 @@ import chess.polyglot
 from  ..heuristic.history import HistoryTable
 from ..heuristic.killer_move import KillerMoves
 from engine.search.interface import BaseSearch
+from engine.utils.logger import Logger
 
 INFINITY = 9999999
 NEGATIVE_INFINITY = -INFINITY
@@ -42,13 +43,13 @@ class SearchTimer:
         return False
 
 class Searcher(BaseSearch):
-    def __init__(self):
-        self.evaluator = Evaluator()
+    def __init__(self, evaluator: Evaluator, logger: Logger):
+        super().__init__(evaluator, logger)
+        
         self.tt = TranspositionTable()
         self.timer = SearchTimer()
         self.history_table = HistoryTable()
-        self.killer_moves = KillerMoves()
-        
+        self.killer_moves = KillerMoves()  
     
     def _quiescence(self, board: chess.Board, alpha: int, beta: int) -> int:
         stand_pat = self.evaluator.evaluate(board.board)

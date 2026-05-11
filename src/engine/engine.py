@@ -5,6 +5,8 @@ from engine.game.match import Match
 from engine.game.runner import MatchRunner
 from engine.evaluation.eval import Evaluator
 from engine.search.algorithms.random import RandomSearch
+# from engine.search.algorithms.search import Searcher
+from engine.utils.decorators import timer_decorator
 
 class Engine:
     def __init__(self):
@@ -17,13 +19,13 @@ class Engine:
         white_agent = (
             Agent("#1", time_limit)
             .with_search(RandomSearch(evaluator=evaluator, logger=logger))
-            .with_depth(1)
+            .with_depth(1_000_000)
         )
 
         black_agent = (
             Agent("#2", time_limit)
             .with_search(RandomSearch(evaluator=evaluator, logger=logger))
-            .with_depth(1)
+            .with_depth(1_000_000)
         )
 
         match = Match(
@@ -35,8 +37,8 @@ class Engine:
         self.runner = MatchRunner(
             match=match,
             logger=logger,
-            delay=0.2,
         )
 
+    @timer_decorator
     def run(self):
         self.runner.run()
