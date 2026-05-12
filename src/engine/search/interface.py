@@ -1,11 +1,13 @@
 import chess
 from typing import Optional, Tuple
+from abc import ABC, abstractmethod
 
-class BaseSearch:
+class BaseSearch(ABC):
     def __init__(self, evaluator, logger):
         self.evaluator = evaluator
         self.logger = logger
 
+    @abstractmethod
     def search(
         self,
         board: chess.Board,
