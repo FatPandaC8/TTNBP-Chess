@@ -298,6 +298,7 @@ class Searcher(BaseSearch):
                 if tt_entry and tt_entry.best_move:
                     best_move = tt_entry.best_move
 
-                print(f"info depth {current_depth} score cp {best_score} " f"nodes {self.timer.nodes} pv {best_move}")
+                self.logger.log_search(best_move, best_score, current_depth, time.perf_counter() - self.timer.start_time)
 
         return best_score, best_move
+

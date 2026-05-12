@@ -46,3 +46,13 @@ class Logger:
             "move": str(move),
             "fen": board.fen()
         })
+
+    def log_search(self, move, score, depth, time):
+
+        self._write({
+            "type": "search",
+            "move": str(move),
+            "score": score,
+            "depth": depth,
+            "time": time
+        })
