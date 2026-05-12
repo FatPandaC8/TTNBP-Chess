@@ -15,7 +15,6 @@ services:
 
     stdin_open: true # keep standard input open
     tty: true # allocate terminal inside container
-    command: tail -f /dev/null
     # the two above make the container behave like a normal terminal app
 
     environment:

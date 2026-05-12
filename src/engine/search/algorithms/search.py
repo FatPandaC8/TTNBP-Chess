@@ -1,11 +1,12 @@
 import chess
 import time
 from engine.evaluation.eval import Evaluator
-from ..Cache.Tranposition_Table import TranspositionTable  , TT_EXACT, TT_LOWER, TT_UPPER
+from ..cache.tranposition_table import TranspositionTable  , TT_EXACT, TT_LOWER, TT_UPPER
 import chess.polyglot
 from  ..heuristic.history import HistoryTable
 from ..heuristic.killer_move import KillerMoves
-from ..base import Search
+from engine.search.interface import BaseSearch
+from engine.utils.logger import Logger
 
 INFINITY = 9999999
 NEGATIVE_INFINITY = -INFINITY
@@ -41,9 +42,10 @@ class SearchTimer:
             return (time.perf_counter() - self.start_time) >= self.time_limit
         return False
 
-class Searcher(Search):
-    def __init__(self):
-        self.evaluator = Evaluator()
+class Searcher(BaseSearch):
+    def __init__(self, evaluator: Evaluator, logger: Logger):
+        super().__init__(evaluator, logger)
+        
         self.tt = TranspositionTable()
         self.timer = SearchTimer()
         self.history_table = HistoryTable()
