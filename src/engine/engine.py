@@ -16,16 +16,17 @@ class Engine:
 
         time_limit: float = 0.5
 
+        # Current: depth 5 takes 263.171743s, depth 2 takes 2.29s
         white_agent = (
             Agent("#1", time_limit)
             .with_search(Searcher(evaluator=evaluator, logger=logger))
-            .with_depth(3)
+            .with_depth(2)
         )
 
         black_agent = (
             Agent("#2", time_limit)
             .with_search(Searcher(evaluator=evaluator, logger=logger))
-            .with_depth(3)
+            .with_depth(2)
         )
 
         match = Match(

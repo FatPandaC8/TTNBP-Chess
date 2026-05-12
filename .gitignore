@@ -9,3 +9,6 @@ __pycache__
 
 # Workspace
 *.code-workspace
+
+# Folder
+logs

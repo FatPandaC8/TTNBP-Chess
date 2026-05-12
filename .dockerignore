@@ -10,6 +10,8 @@ venv/
 .git/
 .gitignore
 
+logs
+
 .DS_Store
 Thumbs.db
 
