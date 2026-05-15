@@ -4,7 +4,8 @@ from engine.agents.interface import Agent
 from engine.game.match import Match
 from engine.game.runner import MatchRunner
 from engine.evaluation.eval import Evaluator
-from engine.search.algorithms.random import RandomSearch
+# from engine.search.algorithms.random import RandomSearch
+from engine.search.algorithms.bach.search import SimpleSearcher
 from engine.search.algorithms.search import Searcher
 from engine.utils.decorators import timer_decorator
 
@@ -19,14 +20,14 @@ class Engine:
         # Current: depth 5 takes 263.171743s, depth 2 takes 2.29s
         white_agent = (
             Agent("#1", time_limit)
-            .with_search(Searcher(evaluator=evaluator, logger=logger))
-            .with_depth(2)
+            .with_search(SimpleSearcher(evaluator=evaluator, logger=logger))
+            .with_depth(5)
         )
 
         black_agent = (
             Agent("#2", time_limit)
             .with_search(Searcher(evaluator=evaluator, logger=logger))
-            .with_depth(2)
+            .with_depth(5)
         )
 
         match = Match(

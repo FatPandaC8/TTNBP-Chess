@@ -8,6 +8,10 @@ class BaseSearch(ABC):
         self.logger = logger
 
     @abstractmethod
+    def _order_moves(self, moves: list):
+        raise NotImplementedError
+
+    @abstractmethod
     def search(
         self,
         board: chess.Board,
