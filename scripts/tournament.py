@@ -1,150 +1,124 @@
 import os
-import sys
 import stat
-import shutil
-import platform
 import subprocess
 from pathlib import Path
 
+from engine.utils.config_loader import load_config
+from engine.utils.date_time import timestamp
+
 
 ROOT = Path(__file__).resolve().parent.parent
-BIN_DIR = ROOT / "bin"
+LOGS = ROOT / "logs"
 
+LOGS.mkdir(exist_ok=True)
+
+
+# =========================
+# HELPERS
+# =========================
 
 def make_executable(path: Path):
-    if os.name != "nt":
+    if os.name != "nt" and path.exists():
         mode = path.stat().st_mode
         path.chmod(mode | stat.S_IEXEC)
 
 
-def detect_platform():
-    system = platform.system().lower()
+def resolve_engine_path(cmd: str) -> Path:
+    path = ROOT / cmd
 
-    if system == "windows":
-        return "windows"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Engine binary not found: {path}"
+        )
 
-    if system == "darwin":
-        return "macos"
+    make_executable(path)
 
-    return "linux"
-
-
-def expected_binaries():
-    current = detect_platform()
-
-    if current == "windows":
-        return {
-            "cutechess": BIN_DIR / "cutechess-cli.exe",
-            "stockfish": BIN_DIR / "stockfish.exe",
-            "my_engine": BIN_DIR / "my_engine.exe",
-        }
-
-    return {
-        "cutechess": BIN_DIR / "cutechess-cli",
-        "stockfish": BIN_DIR / "stockfish",
-        "my_engine": BIN_DIR / "uci",
-    }
+    return path
 
 
-def print_missing_binary_help(name: str):
-    current = detect_platform()
+# =========================
+# ENGINE ARGS
+# =========================
 
-    print(f"\n[ERROR] Missing binary: {name}\n")
+def build_engine_args(engine_cfg):
+    engine_path = resolve_engine_path(engine_cfg["cmd"])
 
-    if name == "cutechess":
-        print("Download CuteChess CLI:")
-        print("https://github.com/cutechess/cutechess/releases")
-
-        if current == "windows":
-            print("\nExpected file:")
-            print("bin/cutechess-cli.exe")
-
-        else:
-            print("\nExpected file:")
-            print("bin/cutechess-cli")
-
-    elif name == "stockfish":
-        print("Download Stockfish:")
-        print("https://stockfishchess.org/download/")
-
-        if current == "windows":
-            print("\nExpected file:")
-            print("bin/stockfish.exe")
-
-        else:
-            print("\nExpected file:")
-            print("bin/stockfish")
-
-    print()
-
-
-def check_binaries():
-    bins = expected_binaries()
-
-    missing = False
-
-    for name, path in bins.items():
-        if not path.exists():
-            missing = True
-            print_missing_binary_help(name)
-        else:
-            make_executable(path)
-
-    return not missing
-
-
-def run_tournament(games=20, concurrency=1, tc="1+0.1"):
-    bins = expected_binaries()
-
-    cutechess = bins["cutechess"]
-    stockfish = bins["stockfish"]
-    my_engine = bins["my_engine"]
-
-    env = os.environ.copy()
-    env["PYTHONPATH"] = str(ROOT / "src")
-
-    cmd = [
-        str(cutechess),
-
+    args = [
         "-engine",
-        "name=MyEngine",
-        f"cmd={my_engine}",
-        f"dir={ROOT}",
-
-        "-engine",
-        "name=Stockfish",
-        f"cmd={stockfish}",
-
-        "-each",
+        f"name={engine_cfg['name']}",
+        f"cmd={engine_path}",
         "proto=uci",
-        f"tc={tc}",
+    ]
+
+    options = engine_cfg.get("options", {})
+
+    for key, value in options.items():
+        args.append(f"option.{key}={value}")
+
+    return args
+
+
+# =========================
+# BUILD COMMAND
+# =========================
+
+def build_cutechess_command(config):
+    tournament_cfg = config["tournament"]
+    engines_cfg = config["engines"]
+
+    cutechess = resolve_engine_path("bin/cutechess-cli")
+
+    cmd = [str(cutechess)]
+
+    # Engines
+    for engine_cfg in engines_cfg:
+        cmd.extend(build_engine_args(engine_cfg))
+
+    # Tournament settings
+    cmd.extend([
+        "-each",
+        f"tc={tournament_cfg['tc']}",
 
         "-games",
-        str(games),
+        str(tournament_cfg["games"]),
 
         "-repeat",
 
         "-concurrency",
-        str(concurrency),
-    ]
+        str(tournament_cfg["concurrency"]),
+
+        "-pgnout",
+        str(LOGS / "pgn" / f"game_{timestamp()}"),
+    ])
+
+    return cmd
+
+
+# =========================
+# RUN
+# =========================
+
+def run_tournament(config):
+    cmd = build_cutechess_command(config)
 
     print("\n[TOURNAMENT] Running:\n")
-    print(" ".join(cmd))
+    print(" ".join(map(str, cmd)))
     print()
 
     subprocess.run(
         cmd,
         cwd=ROOT,
-        env=env
+        check=True,
     )
 
 
+# =========================
+# MAIN
+# =========================
+
 def main():
-
-    if not check_binaries():
-        return
-
-    run_tournament()
+    config = load_config("tournament.yml")
+    run_tournament(config)
 
 
 if __name__ == "__main__":
