@@ -29,7 +29,7 @@ class SimpleSearcher(BaseSearch):
 
         return sorted(moves, key=score, reverse=True)
 
-    def minimax(self, board: chess.Board, depth: int, isMax: bool):
+    def minimax(self, board: chess.Board, depth: int, alpha: float, beta: float, isMax: bool):
         if depth == 0 or board.is_game_over():
             return self.evaluator.evaluate(board)
         
@@ -39,11 +39,14 @@ class SimpleSearcher(BaseSearch):
             for move in board.legal_moves:
                 board.push(move)
 
-                score = self.minimax(board, depth - 1, False) # False to switch turn
+                score = self.minimax(board, depth - 1, alpha, beta, False) # False to switch turn
 
                 board.pop()
 
                 best = max(best, score)
+                alpha = max(alpha, best) # get the best so far
+                if alpha >= beta:
+                    break
 
             return best
         else:
@@ -52,11 +55,14 @@ class SimpleSearcher(BaseSearch):
             for move in board.legal_moves:
                 board.push(move)
 
-                score = self.minimax(board, depth - 1, True)
+                score = self.minimax(board, depth - 1, alpha, beta, True)
 
                 board.pop()
 
                 best = min(best, score)
+                beta = min(beta, best)
+                if alpha >= beta:
+                    break
 
             return best
 
@@ -64,16 +70,21 @@ class SimpleSearcher(BaseSearch):
         best_move = None
         best_score = -float("inf")
 
+        alpha = -float("inf")
+        beta = float("inf")
+
         for move in self._order_moves(board, board.legal_moves):
             board.push(move)
 
-            score = self.minimax(board, depth - 1, False)
+            score = self.minimax(board, depth - 1, alpha, beta, False)
 
             board.pop()
 
             if score > best_score:
                 best_score = score
                 best_move = move
+
+            alpha = max(alpha, best_score) # the last node (the root node is a maxi so redo this)
 
             self.logger.log_search(best_score, best_move, depth, 0)
 
