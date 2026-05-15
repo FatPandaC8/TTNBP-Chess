@@ -10,5 +10,6 @@ __pycache__
 # Workspace
 *.code-workspace
 
-# Folder
+# Logs and bin
 logs
+bin/

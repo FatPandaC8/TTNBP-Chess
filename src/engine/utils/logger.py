@@ -1,9 +1,10 @@
 from pathlib import Path
-from datetime import datetime
 import json
 import threading
 import queue
 import atexit
+
+from .date_time import timestamp
 
 
 class Logger:
@@ -11,8 +12,7 @@ class Logger:
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(exist_ok=True)
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.filepath = self.log_dir / f"engine_{timestamp}.log"
+        self.filepath = self.log_dir / f"engine_{timestamp()}.log"
 
         self.batch_size = batch_size
         self.q = queue.Queue()
