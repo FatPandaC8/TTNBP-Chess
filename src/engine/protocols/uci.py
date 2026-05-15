@@ -1,3 +1,5 @@
+import sys
+
 import chess
 from engine.agents.interface import Agent
 
@@ -6,21 +8,25 @@ class UCIProtocol:
     def __init__(self, agent: Agent):
         self.agent = agent
         self.board = chess.Board()
-
         self.running = True
 
     def loop(self):
-        while self.running:
-            try:
-                command = input().strip()
-                self._handle_command(command)
+        # while self.running:
+        #     try:
+        #         command = input().strip()
+        #         self._handle_command(command)
             
-            except EOFError:
+        #     except EOFError:
+        #         break
+        while self.running:
+            line = sys.stdin.readline()
+            if not line:
                 break
+            command = line.strip()
+            self._handle_command(command)
+
 
     def _handle_command(self, command: str) -> None:
-
-        print(f"[UCI] {command}")
         
         if command == "uci":
             self._handle_uci()
@@ -41,37 +47,46 @@ class UCIProtocol:
             self._handle_quit()
 
     def _handle_uci(self) -> None:
-        print("id name TTNBP-Chess")
-        print("id author Phuc")
-        print("uciok")
+        self._send("id name TTNBP-Chess")
+        self._send("id author Phuc")
+        self._send("uciok")
 
     def _handle_isready(self) -> None:
-        print("readyok")
+        self._send("readyok")
 
     def _handle_position(self, command: str) -> None:
         tokens = command.split()
 
         self.board.reset()
 
-        if tokens[1] != "startpos":
-            return
-        
-        if "moves" not in tokens:
-            return
+        if "startpos" in tokens:
+                if "moves" in tokens:
+                    idx = tokens.index("moves")
+                    moves = tokens[idx + 1:]
+                    for m in moves:
+                        self.board.push_uci(m)
 
-        idx = tokens.index("moves")
+        elif "fen" in tokens:
+            fen_idx = tokens.index("fen") + 1
+            moves_idx = tokens.index("moves") if "moves" in tokens else len(tokens)
 
-        moves = tokens[idx + 1:]
+            fen = " ".join(tokens[fen_idx:moves_idx])
+            self.board.set_fen(fen)
 
-        for move in moves:
-            self.board.push_uci(move)
+            if "moves" in tokens:
+                for m in tokens[moves_idx + 1:]:
+                    self.board.push_uci(m)
 
     def _handle_go(self, command: str):
         move = self.agent.get_move(self.board)
-        print(f"bestmove {move}")
+        self._send(f"bestmove {move.uci()}")
 
     def _handle_newgame(self) -> None:
         self.board.reset()
 
     def _handle_quit(self) -> None:
         self.running = False
+
+    def _send(self, msg):
+        sys.stdout.write(msg + "\n")
+        sys.stdout.flush()
