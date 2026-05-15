@@ -1,5 +1,5 @@
 import chess
-from engine.evaluation.constants.piece_square_tables import PHASE_INC, OPENING_PST, ENDGAME_PST
+from engine.evaluation.constants.piece_square_tables import PHASE_INC, OPENING_PST, ENDGAME_PST, MATERIAL_VALUE
 
 class Evaluator:
     """
@@ -17,23 +17,26 @@ class Evaluator:
             phase_weight = PHASE_INC[piece_type]
             op_table = OPENING_PST[piece_type]
             eg_table = ENDGAME_PST[piece_type]
+            material = MATERIAL_VALUE[piece_type]
 
-            # 1. QUÂN TRẮNG (Không cần lật bàn cờ)
-            # board.pieces() trả về một SquareSet cực nhanh (Bitboard)
-            for sq in board.pieces(piece_type, chess.WHITE):
+            # 1. QUÂN TRẮNG
+            white_squares = board.pieces(piece_type, chess.WHITE)
+            for sq in white_squares:
                 opening_score += op_table[sq]
                 endgame_score += eg_table[sq]
                 phase += phase_weight
+            opening_score += material * len(white_squares)
+            endgame_score += material * len(white_squares)
 
-            # 2. QUÂN ĐEN (Cần lật bàn cờ)
-            for sq in board.pieces(piece_type, chess.BLACK):
-                # Phép XOR 56 giúp đảo lộn ô cờ (VD: a8 (56) -> a1 (0))
+            # 2. QUÂN ĐEN
+            black_squares = board.pieces(piece_type, chess.BLACK)
+            for sq in black_squares:
                 sq_flipped = sq ^ 56
-                
-                # Trừ điểm vì Đen có lợi thế ở ô này
                 opening_score -= op_table[sq_flipped]
                 endgame_score -= eg_table[sq_flipped]
                 phase += phase_weight
+            opening_score -= material * len(black_squares)
+            endgame_score -= material * len(black_squares)
 
         # 3. Tính toán Tapered Evaluation (Nội suy)
         # Bóp phase về giới hạn tối đa là 24
