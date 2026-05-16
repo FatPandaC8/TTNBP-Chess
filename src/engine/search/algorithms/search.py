@@ -21,6 +21,8 @@ NULL_MOVE_MIN_DEPTH = 3
 ASPIRATION_MIN_DEPTH = 4
 ASPIRATION_DELTA = 50
 
+MVV_LVA_SCORES = [0, 0, 0, 0, 0, 0, 50, 51, 52, 53, 54, 55, 40 , 41, 42, 43, 44, 45, 30, 31, 32, 33, 34, 35, 20, 21, 22, 23, 24, 25, 10, 11, 12, 13, 14, 15]
+
 class SearchTimer:
     """Quản lý thời gian và đếm Nodes"""
     __slots__ = ['start_time', 'time_limit', 'nodes']
@@ -52,11 +54,36 @@ class Searcher(BaseSearch):
         self.killer_moves = KillerMoves()
         
     def _order_moves(self, board: chess.Board, moves: list, tt_move: chess.Move, ply: int):
-        pass  # TODO: Thêm move ordering heuristics (ví dụ: MVV/LVA, killer moves, history heuristic)
+        color_idx = 1 if board.turn == chess.BLACK else 0
+
+        def score_move(move):
+            if move == tt_move:
+                return 1000000
+            if board.is_capture(move):
+                victim = board.piece_at(move.to_square)
+                attacker = board.piece_at(move.from_square)
+                v_type = victim.piece_type if victim else chess.PAWN
+                a_type = attacker.piece_type if attacker else chess.PAWN
+                return 100000 + MVV_LVA_SCORES[v_type * 6 + a_type]
+            if move.promotion:
+                return 80000 + move.promotion * 100
+            if move == self.killer_moves[ply][0]:
+                return 90000
+            elif move == self.killer_moves[ply][1]:
+                return 80000
+            return self.history_table[color_idx][move.from_square][move.to_square]
+
+        moves.sort(key=score_move, reverse=True)
     
     
     def _order_captures(self, board: chess.Board, moves: list):
-        pass  # TODO: Sắp xếp nước bắt quân theo MVV/LVA
+        def cap_score(move):
+            victim = board.piece_at(move.to_square)
+            attacker = board.piece_at(move.from_square)
+            v_type = victim.piece_type if victim else chess.PAWN
+            a_type = attacker.piece_type if attacker else chess.PAWN
+            return MVV_LVA_SCORES[v_type * 6 + a_type]
+        moves.sort(key=cap_score, reverse=True)
 
     def _quiescence(self, board: chess.Board, alpha: int, beta: int) -> int:
         self.timer.nodes += 1
