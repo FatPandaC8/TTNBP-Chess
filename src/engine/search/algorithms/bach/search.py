@@ -36,7 +36,9 @@ class SimpleSearcher(BaseSearch):
         if isMax:
             best = -float("inf")
 
-            for move in board.legal_moves:
+            moves = self._order_moves(board, list(board.legal_moves))
+
+            for move in moves:
                 board.push(move)
 
                 score = self.minimax(board, depth - 1, alpha, beta, False) # False to switch turn
@@ -52,7 +54,9 @@ class SimpleSearcher(BaseSearch):
         else:
             best = float("inf")
 
-            for move in board.legal_moves:
+            moves = self._order_moves(board, list(board.legal_moves))
+
+            for move in moves:
                 board.push(move)
 
                 score = self.minimax(board, depth - 1, alpha, beta, True)
@@ -78,7 +82,7 @@ class SimpleSearcher(BaseSearch):
             for move in self._order_moves(board, board.legal_moves):
                 board.push(move)
 
-                score = self.minimax(board, depth - 1, alpha, beta, False)
+                score = self.minimax(board, curr_depth - 1, alpha, beta, False)
 
                 board.pop()
 

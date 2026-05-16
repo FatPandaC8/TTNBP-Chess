@@ -43,4 +43,8 @@ class Match:
         return self.board.is_game_over()
 
     def result(self) -> str:
+        out = self.board.outcome()
+        name_winner = "White" if out.winner == chess.WHITE else "Black"
+        print(f"Winner is: {name_winner}")
+        print(f"Reason: {out.termination}")
         return self.board.result()

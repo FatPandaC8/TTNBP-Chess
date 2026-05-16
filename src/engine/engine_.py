@@ -21,13 +21,13 @@ class Engine:
         white_agent = (
             Agent("#1", time_limit)
             .with_search(SimpleSearcher(evaluator=evaluator, logger=logger))
-            .with_depth(5)
+            .with_depth(3)
         )
 
         black_agent = (
             Agent("#2", time_limit)
             .with_search(Searcher(evaluator=evaluator, logger=logger))
-            .with_depth(5)
+            .with_depth(3)
         )
 
         match = Match(
