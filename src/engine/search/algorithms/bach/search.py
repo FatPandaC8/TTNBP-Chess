@@ -68,24 +68,26 @@ class SimpleSearcher(BaseSearch):
 
     def search(self, board, depth, time_limit = None):
         best_move = None
-        best_score = -float("inf")
 
-        alpha = -float("inf")
-        beta = float("inf")
+        for curr_depth in range(1, depth + 1):
+            best_score = -float("inf")
 
-        for move in self._order_moves(board, board.legal_moves):
-            board.push(move)
+            alpha = -float("inf")
+            beta = float("inf")
 
-            score = self.minimax(board, depth - 1, alpha, beta, False)
+            for move in self._order_moves(board, board.legal_moves):
+                board.push(move)
 
-            board.pop()
+                score = self.minimax(board, depth - 1, alpha, beta, False)
 
-            if score > best_score:
-                best_score = score
-                best_move = move
+                board.pop()
 
-            alpha = max(alpha, best_score) # the last node (the root node is a maxi so redo this)
+                if score > best_score:
+                    best_score = score
+                    best_move = move
 
-            self.logger.log_search(best_score, best_move, depth, 0)
+                alpha = max(alpha, best_score) # the last node (the root node is a maxi so redo this)
+
+                self.logger.log_search(best_score, best_move, curr_depth, 0)
 
         return best_score, best_move
