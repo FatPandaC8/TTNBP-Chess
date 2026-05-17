@@ -1,4 +1,5 @@
 import chess
+from engine.search.algorithms.bach.tt import TranspositionTable
 from engine.utils.logger import Logger
 from engine.agents.interface import Agent
 from engine.game.match import Match
@@ -18,16 +19,25 @@ class Engine:
         time_limit: float = 0.5
 
         # Current: depth 5 takes 263.171743s, depth 2 takes 2.29s
+
+        main_tt = TranspositionTable(size=1_000_000)
+        
         white_agent = (
             Agent("#1", time_limit)
-            .with_search(SimpleSearcher(evaluator=evaluator, logger=logger))
-            .with_depth(3)
+            .with_search(
+                SimpleSearcher(
+                    evaluator=evaluator,
+                    logger=logger,
+                    tt=main_tt
+                )
+            )
+            .with_depth(6)
         )
 
         black_agent = (
             Agent("#2", time_limit)
             .with_search(Searcher(evaluator=evaluator, logger=logger))
-            .with_depth(3)
+            .with_depth(6)
         )
 
         match = Match(
