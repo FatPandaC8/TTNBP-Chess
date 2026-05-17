@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 EXACT = 0
 LOWER = 1
@@ -6,8 +6,8 @@ UPPER = 2
 
 @dataclass
 class TTEntry:
-    key: int # zobrist hashing
+    key: int
     depth: int
-    score: int
+    score: float
     flag: int
-    best_move: object = None
+    move: object = field(default=None)  # best move found at this node
