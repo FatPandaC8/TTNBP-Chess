@@ -1,27 +1,23 @@
-from engine.search.algorithms.bach.entry import EXACT, LOWER, UPPER
+import chess
+
+from engine.search.algorithms.bach.entry import EXACT, LOWER, UPPER, TTEntry
 
 
 class TranspositionTable:
     def __init__(self, size=1_000_000):
         self.size = size
         self.table = [None] * size
-        self.index_map = {}  # key -> idx, for O(1) export without full scan
-
-        self.hits = 0
-        self.misses = 0
+        # REMOVED: self.index_map (Too slow to update during minimax)
 
     def _index(self, key):
         return key % self.size
 
     def lookup(self, key, req_depth, alpha, beta):
-        idx = self._index(key)
+        idx = key % self.size
         entry = self.table[idx]
 
         if entry is None or entry.key != key or entry.depth < req_depth:
-            self.misses += 1
             return None, alpha, beta
-
-        self.hits += 1
 
         if entry.flag == EXACT:
             return entry.score, alpha, beta
@@ -34,38 +30,44 @@ class TranspositionTable:
             return entry.score, alpha, beta
 
         return None, alpha, beta
-
+    
     def get_move(self, key):
-        """Return the best move stored for this key, or None."""
-        idx = self._index(key)
+        """
+        Fetches only the best move for a given key.
+        Used at the start of the move loop to improve move ordering.
+        """
+        idx = key % self.size
         entry = self.table[idx]
+        
+        # Verify entry exists and the key matches (to handle hash collisions)
         if entry is not None and entry.key == key:
-            return getattr(entry, 'move', None)
+            return entry.move
         return None
 
     def store(self, entry):
-        idx = self._index(entry.key)
+        idx = entry.key % self.size
         old = self.table[idx]
-
-        # Two-tier replacement:
-        # Always replace if same key (fresh info), or if new entry searched deeper
+        # Always replace if same key or if new entry is deeper
         if old is None or old.key == entry.key or entry.depth >= old.depth:
             self.table[idx] = entry
-            self.index_map[entry.key] = idx
 
-    def export_entries(self, min_depth=3):
-        """O(1) per entry via index_map instead of scanning the full table."""
-        result = {}
-        for key, idx in self.index_map.items():
-            entry = self.table[idx]
-            if entry is not None and entry.key == key and entry.depth >= min_depth:
-                result[key] = entry
-        return result
+    def export_entries(self, min_depth=6):
+        """
+        Scan the table once at the end. 
+        Export as tuples to maximize multiprocessing speed.
+        """
+        # (key, depth, score, flag, move_uci)
+        return [
+            (e.key, e.depth, e.score, e.flag, e.move.uci() if e.move else None)
+            for e in self.table 
+            if e is not None and e.depth >= min_depth
+        ]
 
-    def merge_tt(self, incoming):
-        for key, entry in incoming.items():
-            idx = self._index(key)
+    def merge_tt(self, incoming_tuples):
+        """Merges raw tuples back into TTEntry objects."""
+        for key, depth, score, flag, move_uci in incoming_tuples:
+            idx = key % self.size
             old = self.table[idx]
-            if old is None or entry.depth > old.depth:
-                self.table[idx] = entry
-                self.index_map[entry.key] = idx
+            if old is None or depth > old.depth:
+                move = chess.Move.from_uci(move_uci) if move_uci else None
+                self.table[idx] = TTEntry(key, depth, score, flag, move)

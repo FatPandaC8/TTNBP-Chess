@@ -31,13 +31,13 @@ class Engine:
                     tt=main_tt
                 )
             )
-            .with_depth(12)
+            .with_depth(8)
         )
 
         black_agent = (
             Agent("#2", time_limit)
             .with_search(Searcher(evaluator=evaluator, logger=logger))
-            .with_depth(12)
+            .with_depth(8)
         )
 
         match = Match(

@@ -62,10 +62,15 @@ def split_moves(moves, k):
 
 def helper_worker(args):
     evaluator, board_fen, depth, root_moves = args
-    board     = chess.Board(board_fen)
-    local_tt  = TranspositionTable()
-    searcher  = SimpleSearcher(evaluator=evaluator, logger=Logger(), tt=local_tt)
+    board = chess.Board(board_fen)
+    local_tt = TranspositionTable()
+    searcher = SimpleSearcher(evaluator=evaluator, logger=Logger(), tt=local_tt)
+    
+    # Run the pre-search
     searcher.helper_search(board, depth, root_moves)
+    
+    # OPTIMIZATION: Return raw tuples. 
+    # This is significantly faster for ProcessPoolExecutor to handle.
     return local_tt.export_entries(min_depth=6)
 
 
@@ -295,7 +300,7 @@ class SimpleSearcher(BaseSearch):
         # ---- iterative deepening ----
         best_score = None
         best_move  = moves[0]          # always-valid fallback
-        root_key   = hash(board._transposition_key())
+        root_key   = chess.polyglot.zobrist_hash(board)
 
         for curr_depth in range(1, depth + 1):
             if time_limit is not None and time.time() - start > time_limit:
