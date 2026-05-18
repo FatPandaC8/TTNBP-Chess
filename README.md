@@ -1,6 +1,4 @@
 # TTNBP-Chess
-````markdown
-# TTNBP Chess Engine
 
 A modular Python chess engine focused on clean architecture and extensibility.
 
