@@ -12,7 +12,7 @@ class Logger:
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(exist_ok=True)
 
-        self.filepath = self.log_dir / f"engine_{timestamp()}.log"
+        self.filepath = self.log_dir / f"engine_{timestamp()}.jsonl"
 
         self.batch_size = batch_size
         self.q = queue.Queue()

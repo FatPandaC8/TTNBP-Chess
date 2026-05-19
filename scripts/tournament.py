@@ -8,9 +8,9 @@ from engine.utils.date_time import timestamp
 
 
 ROOT = Path(__file__).resolve().parent.parent
-LOGS = ROOT / "logs"
+LOGS_PGN_DIR = ROOT / "logs" / "pgn"
 
-LOGS.mkdir(exist_ok=True)
+LOGS_PGN_DIR.mkdir(exist_ok=True)
 
 
 # =========================
@@ -66,13 +66,26 @@ def build_cutechess_command(config):
     tournament_cfg = config["tournament"]
     engines_cfg = config["engines"]
 
-    cutechess = resolve_engine_path("bin/cutechess-cli")
+    cutechess = resolve_engine_path("bin/cutechess-cli-mac")
+    # cutechess = resolve_engine_path("bin/cutechess-cli")
 
     cmd = [str(cutechess)]
 
     # Engines
     for engine_cfg in engines_cfg:
         cmd.extend(build_engine_args(engine_cfg))
+
+    # Openings
+    opening = tournament_cfg.get("opening")
+
+    if opening:
+        cmd.extend([
+            "-openings",
+            f"file={ROOT / opening['file']}",
+            f"format={opening.get('format', 'pgn')}",
+            f"order={opening.get('order', 'random')}",
+            f"plies={opening.get('plies', 8)}",
+        ])
 
     # Tournament settings
     cmd.extend([
@@ -88,7 +101,7 @@ def build_cutechess_command(config):
         str(tournament_cfg["concurrency"]),
 
         "-pgnout",
-        str(LOGS / "pgn" / f"game_{timestamp()}"),
+        str(LOGS_PGN_DIR / f"game_{timestamp()}.pgn"),
     ])
 
     return cmd
@@ -117,6 +130,7 @@ def run_tournament(config):
 # =========================
 
 def main():
+    # config = load_config("mac-tournament.yml")
     config = load_config("tournament.yml")
     run_tournament(config)
 

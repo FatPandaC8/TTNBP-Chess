@@ -2,6 +2,7 @@ import chess
 import time
 import chess.polyglot
 from engine.evaluation.eval import Evaluator
+from engine.search.context import SearchContext
 from engine.search.interface import BaseSearch
 from engine.utils.logger import Logger
 from ..cache.tranposition_table import TranspositionTable, TT_EXACT, TT_LOWER, TT_UPPER
@@ -50,7 +51,9 @@ class SearchTimer:
 
 class Searcher(BaseSearch):
     def __init__(self, evaluator: Evaluator, logger: Logger):
-        super().__init__(evaluator, logger)
+        super().__init__(
+            context=SearchContext(evaluator=evaluator, logger=logger)
+        )
         
         self.tt = TranspositionTable()
         self.timer = SearchTimer()
