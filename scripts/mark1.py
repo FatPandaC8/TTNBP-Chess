@@ -3,13 +3,11 @@ import chess
 from statistics import mean
 
 from engine.evaluation import Evaluator, StockfishLikeEvaluator
-from engine.evaluation.eval_balanced import BalancedEvaluator
 from engine.search.algorithms.search import Searcher
 from engine.utils.logger import Logger
 
 EVALUATORS = {
     "Evaluator": Evaluator,
-    "Balanced": BalancedEvaluator,
     "StockfishLike": StockfishLikeEvaluator,
 }
 

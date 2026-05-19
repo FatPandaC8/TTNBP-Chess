@@ -30,7 +30,7 @@ class StockfishLikeEvaluator:
     KING_RING_BONUS = 3
     CASTLED_KING_BONUS = 18
     UNCASTLED_KING_PENALTY = 8
-    PAWN_MAJORIY_BONUS = 6
+    PAWN_MAJORITY_BONUS = 6
 
     def evaluate(self, board: chess.Board) -> int:
         opening_score = 0
