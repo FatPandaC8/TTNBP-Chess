@@ -28,7 +28,7 @@ class Engine:
         # Current: depth 5 takes 263.171743s, depth 2 takes 2.29s
         white_agent = (
             Agent("#1", time_limit)
-            .with_search(Searcher(evaluator=evaluator_stockfish_like, logger=logger))
+            .with_search(Searcher(evaluator=evaluator_full, logger=logger))
             .with_depth(2)
         )
 

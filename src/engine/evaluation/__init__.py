@@ -2,3 +2,4 @@ from engine.evaluation.eval import Evaluator
 from engine.evaluation.eval_pst_only import PSTOnlyEvaluator
 from engine.evaluation.eval_rustic import RusticStyleEvaluator
 from engine.evaluation.eval_stockfish_like import StockfishLikeEvaluator
+from engine.evaluation.eval_balanced import BalancedEvaluator
