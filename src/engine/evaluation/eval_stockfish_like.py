@@ -180,8 +180,8 @@ class StockfishLikeEvaluator:
         if white_count == black_count:
             return 0
         if white_count > black_count:
-            return (white_count - black_count) * self.PAWN_MAJORIY_BONUS
-        return -(black_count - white_count) * self.PAWN_MAJORIY_BONUS
+            return (white_count - black_count) * self.PAWN_MAJORITY_BONUS
+        return -(black_count - white_count) * self.PAWN_MAJORITY_BONUS
 
     def _mobility_bonus(self, board: chess.Board) -> int:
         score = 0
