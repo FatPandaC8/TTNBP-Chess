@@ -1,7 +1,13 @@
 tournament:
-  games: 5
-  concurrency: 2
-  tc: "1+0.1"
+  games: 3
+  concurrency: 1
+  tc: "5+0.1"
+
+  opening:
+    file: "resources/opening/8moves_v3.pgn"
+    format: "pgn"
+    order: "random"
+    plies: 8
 
 engines:
   - name: MyEngine
@@ -12,5 +18,5 @@ engines:
 
     options:
       UCI_LimitStrength: "true"
-      UCI_Elo: 1800
-      Skill Level: 10
+      UCI_Elo: 1320
+      Skill Level: 0
