@@ -3,7 +3,7 @@ import chess
 import chess.polyglot
 
 from engine.evaluation.eval import Evaluator
-from ..cache.tranposition_table import TranspositionTable, TT_EXACT, TT_LOWER, TT_UPPER
+from ...cache.tranposition_table import TranspositionTable, TT_EXACT, TT_LOWER, TT_UPPER
 from engine.search.interface import BaseSearch
 from engine.utils.logger import Logger
 from search import SearchTimer
