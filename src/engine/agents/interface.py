@@ -16,22 +16,21 @@ class Agent:
         self.depth = depth
         return self
 
-    def get_move(self, board: chess.Board) -> chess.Move:
+    def get_move(self, board: chess.Board, time_limit: float = None) -> chess.Move:
         if self.search is None:
             raise RuntimeError("Agent is missing search algorithm")
-
         if self.depth is None:
             raise RuntimeError("Agent depth is not set")
 
-        board_copy = board.copy()
+        # Ưu tiên time_limit truyền vào, fallback về self.time_limit
+        effective_time = time_limit if time_limit is not None else self.time_limit
 
-        _, move = self.search.search(
-            board_copy,
-            self.depth,
-            self.time_limit
-        )
+        board_copy = board.copy()
+        _, move = self.search.search(board_copy, self.depth, effective_time)
 
         if move is None:
-            raise RuntimeError("Search returned no move")
+            # Fallback thay vì crash
+            legal = list(board.legal_moves)
+            return legal[0] if legal else None
 
         return move

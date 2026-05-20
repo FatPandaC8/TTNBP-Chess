@@ -12,14 +12,14 @@ def build_agent() -> Agent:
     evaluator = Evaluator()
 
     return (
-        Agent("#uci", 0.5)
+        Agent("#uci", 5)
         .with_search(
             Searcher(
                 evaluator=evaluator,
                 logger=logger
             )
         )
-        .with_depth(2)
+        .with_depth(64)
     )
 
 

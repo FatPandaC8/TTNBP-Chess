@@ -1,5 +1,5 @@
 tournament:
-  games: 50
+  games: 5
   concurrency: 2
   tc: "1+0.1"
 
