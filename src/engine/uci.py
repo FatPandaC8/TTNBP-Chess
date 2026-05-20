@@ -1,6 +1,7 @@
 from engine.agents.interface import Agent
 from engine.evaluation.eval import Evaluator
 from engine.protocols.uci import UCIProtocol
+from engine.search.algorithms.phuc.alpha_beta import AlphaBetaSearcher
 from engine.search.algorithms.search import Searcher
 from engine.utils.logger import Logger
 
@@ -12,9 +13,9 @@ def build_agent() -> Agent:
     evaluator = Evaluator()
 
     return (
-        Agent("#uci", 0.5)
+        Agent("#uci", 2)
         .with_search(
-            Searcher(
+            AlphaBetaSearcher(
                 evaluator=evaluator,
                 logger=logger
             )

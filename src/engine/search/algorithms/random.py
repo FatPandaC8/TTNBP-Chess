@@ -1,6 +1,7 @@
 import random
 import chess
 from engine.evaluation.eval import Evaluator
+from engine.search.context import SearchContext
 from engine.search.interface import BaseSearch
 from engine.utils.logger import Logger
 from typing import Optional, Tuple
@@ -9,7 +10,9 @@ from typing import Optional, Tuple
 class RandomSearch(BaseSearch):
 
     def __init__(self, evaluator: Evaluator, logger: Logger):
-        super().__init__(evaluator, logger)
+        super().__init__(
+            context=SearchContext(evaluator=evaluator, logger=logger)
+        )
 
     def search(
         self,
