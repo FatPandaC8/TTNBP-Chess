@@ -301,4 +301,3 @@ class Searcher(BaseSearch):
                 self.logger.log_search(best_score, best_move, current_depth, time.perf_counter() - self.timer.start_time)
 
         return best_score, best_move
-

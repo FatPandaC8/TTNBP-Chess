@@ -3,9 +3,10 @@ from typing import Optional, Tuple
 from abc import ABC, abstractmethod
 
 class BaseSearch(ABC):
-    def __init__(self, evaluator, logger):
+    def __init__(self, evaluator, logger, heuristics = None):
         self.evaluator = evaluator
         self.logger = logger
+        self.heuristics = heuristics
 
     @abstractmethod
     def search(

@@ -9,7 +9,7 @@ from typing import Optional, Tuple
 class RandomSearch(BaseSearch):
 
     def __init__(self, evaluator: Evaluator, logger: Logger):
-        super().__init__(evaluator, logger)
+        super().__init__(evaluator=evaluator, logger=logger)
 
     def search(
         self,

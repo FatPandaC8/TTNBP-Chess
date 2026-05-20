@@ -8,9 +8,9 @@ from engine.utils.date_time import timestamp
 
 
 ROOT = Path(__file__).resolve().parent.parent
-LOGS = ROOT / "logs"
+LOGS_PGN_DIR = ROOT / "logs" / "pgn"
 
-LOGS.mkdir(exist_ok=True)
+LOGS_PGN_DIR.mkdir(exist_ok=True)
 
 
 # =========================
@@ -74,6 +74,18 @@ def build_cutechess_command(config):
     for engine_cfg in engines_cfg:
         cmd.extend(build_engine_args(engine_cfg))
 
+    # Openings
+    opening = tournament_cfg.get("opening")
+
+    if opening:
+        cmd.extend([
+            "-openings",
+            f"file={ROOT / opening['file']}",
+            f"format={opening.get('format', 'pgn')}",
+            f"order={opening.get('order', 'random')}",
+            f"plies={opening.get('plies', 8)}",
+        ])
+
     # Tournament settings
     cmd.extend([
         "-each",
@@ -88,7 +100,7 @@ def build_cutechess_command(config):
         str(tournament_cfg["concurrency"]),
 
         "-pgnout",
-        str(LOGS / "pgn" / f"game_{timestamp()}"),
+        str(LOGS_PGN_DIR / f"game_{timestamp()}.pgn"),
     ])
 
     return cmd
