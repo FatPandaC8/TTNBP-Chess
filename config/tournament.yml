@@ -1,7 +1,7 @@
 tournament:
-  games: 3
-  concurrency: 1
-  tc: "5+0.1"
+  games: 50
+  concurrency: 2
+  tc: "1+0.1"
 
   opening:
     file: "resources/opening/8moves_v3.pgn"
@@ -14,7 +14,7 @@ engines:
     cmd: bin/my_engine
 
   - name: Stockfish
-    cmd: bin/stockfish-mac
+    cmd: bin/stockfish
 
     options:
       UCI_LimitStrength: "true"

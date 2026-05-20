@@ -1,22 +1,23 @@
+from logging import Logger
 import time
 from typing import Optional, Tuple
 
 import chess
 
-from ....evaluation.eval import Evaluator
-from ....utils.logger import Logger
-from ....search.interface import BaseSearch, SearchContext
+from engine.evaluation.eval import Evaluator
+from engine.search.heuristic.manager import HeuristicManager
+from engine.search.interface import BaseSearch
 
 class AlphaBetaSearcher(BaseSearch):
     
     INF = 999999
 
-    def __init__(self, context: SearchContext):
-        super().__init__(context)
+    def __init__(self, evaluator, logger, heuristics):
+        super().__init__(evaluator, logger, heuristics)
         
-        self.evaluator: Evaluator           = context.evaluator
-        self.logger:    Logger              = context.logger
-        self.heuristics: HeuristicManager   = context.heuristic_manager
+        self.evaluator:  Evaluator           = evaluator
+        self.logger:     Logger              = logger
+        self.heuristics: HeuristicManager    = heuristics
     
     def search(
         self,

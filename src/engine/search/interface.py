@@ -2,11 +2,11 @@ import chess
 from typing import Optional, Tuple
 from abc import ABC, abstractmethod
 
-from .context import SearchContext
-
 class BaseSearch(ABC):
-    def __init__(self, context: SearchContext):
-        self.context = context
+    def __init__(self, evaluator, logger, heuristics = None):
+        self.evaluator = evaluator
+        self.logger = logger
+        self.heuristics = heuristics
 
     @abstractmethod
     def search(

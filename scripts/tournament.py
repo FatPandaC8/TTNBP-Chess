@@ -66,8 +66,7 @@ def build_cutechess_command(config):
     tournament_cfg = config["tournament"]
     engines_cfg = config["engines"]
 
-    cutechess = resolve_engine_path("bin/cutechess-cli-mac")
-    # cutechess = resolve_engine_path("bin/cutechess-cli")
+    cutechess = resolve_engine_path("bin/cutechess-cli")
 
     cmd = [str(cutechess)]
 
@@ -130,7 +129,6 @@ def run_tournament(config):
 # =========================
 
 def main():
-    # config = load_config("mac-tournament.yml")
     config = load_config("tournament.yml")
     run_tournament(config)
 
