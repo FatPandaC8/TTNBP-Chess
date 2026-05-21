@@ -6,15 +6,14 @@ from engine.evaluation.eval import Evaluator
 from ...cache.tranposition_table import TranspositionTable, TT_EXACT, TT_LOWER, TT_UPPER
 from engine.search.interface import BaseSearch
 from engine.utils.logger import Logger
-from search import SearchTimer
+from engine.search.algorithms.search import SearchTimer
 
-# Định dạng hằng số dễ đọc hơn theo chuẩn PEP 8
 INFINITY = 9_999_999
 NEGATIVE_INFINITY = -INFINITY
 CHECKMATE_SCORE = 9_000_000
 
 
-class Searcher(BaseSearch):
+class BasicSearcher(BaseSearch):
     def __init__(self, evaluator: Evaluator, logger: Logger):
         super().__init__(evaluator, logger)
         self.tt = TranspositionTable()
@@ -33,7 +32,6 @@ class Searcher(BaseSearch):
             to_mask=board.occupied_co[not board.turn]
         ))
         
-        # Đã bỏ _order_captures do hàm rỗng tránh lãng phí overhead gọi hàm
 
         for move in captures:
             if self.timer.should_stop():
@@ -57,7 +55,7 @@ class Searcher(BaseSearch):
         alpha: int,
         beta: int,
         ply: int,
-        null_move_allowed: bool = True  # Giữ nguyên signature theo yêu cầu của bạn
+        null_move_allowed: bool = True  
     ) -> int:
         self.timer.nodes += 1
         original_alpha = alpha
@@ -88,7 +86,6 @@ class Searcher(BaseSearch):
                 return NEGATIVE_INFINITY + ply
             return 0
 
-        # Đã bỏ _order_moves do hàm rỗng tránh lãng phí overhead gọi hàm
 
         best_score = NEGATIVE_INFINITY
         best_move = None
@@ -124,7 +121,6 @@ class Searcher(BaseSearch):
         best_score = NEGATIVE_INFINITY
         best_move = None
         
-        # Tối ưu: Tính toán Zobrist Hash của node gốc một lần duy nhất thay vì tính lại ở mỗi vòng lặp depth
         root_hash = chess.polyglot.zobrist_hash(board)
 
         for current_depth in range(1, depth + 1):
@@ -148,8 +144,8 @@ class Searcher(BaseSearch):
                     best_move = tt_entry.best_move
 
                 self.logger.log_search(
-                    best_move,
                     best_score,
+                    best_move,
                     current_depth,
                     time.perf_counter() - self.timer.start_time
                 )

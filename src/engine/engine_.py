@@ -9,8 +9,8 @@ from engine.evaluation.eval_stockfish_like import StockfishLikeEvaluator
 from engine.evaluation.eval_pst_only import PSTOnlyEvaluator
 # from engine.search.algorithms.random import RandomSearch
 from engine.search.algorithms.bach.search import SimpleSearcher
-from engine.search.algorithms.search import Searcher
 from engine.utils.decorators import timer_decorator
+from engine.search.algorithms.thanh.search import BasicSearcher
 
 class Engine:
     def __init__(self):
@@ -43,7 +43,7 @@ class Engine:
 
         black_agent = (
             Agent("#2", time_limit)
-            .with_search(Searcher(evaluator=evaluator_full, logger=logger))
+            .with_search(BasicSearcher(evaluator=evaluator_full, logger=logger))
             .with_depth(2)
         )
 
