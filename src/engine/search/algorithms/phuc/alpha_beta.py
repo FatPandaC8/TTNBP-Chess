@@ -1,4 +1,3 @@
-from logging import Logger
 import time
 from typing import Optional, Tuple
 
@@ -7,6 +6,7 @@ import chess
 from engine.evaluation.eval import Evaluator
 from engine.search.heuristic.manager import HeuristicManager
 from engine.search.interface import BaseSearch
+from engine.utils.logger import Logger
 
 class AlphaBetaSearcher(BaseSearch):
     
