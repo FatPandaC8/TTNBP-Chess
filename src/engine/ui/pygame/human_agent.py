@@ -2,7 +2,6 @@ import chess
 from engine.agents.interface import Agent
 from engine.ui.pygame.input_handler import InputHandler
 
-
 class HumanAgent(Agent):
     """Human player.
 

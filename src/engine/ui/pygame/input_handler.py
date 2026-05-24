@@ -1,9 +1,7 @@
 import pygame
-import chess
-
 
 class InputHandler:
-    """Raw input plumbing: click detection and screen-to-square conversion.
+    """Raw input plumbing: click detection, hover detection, screen-to-square.
 
     Owns no game state. HumanAgent calls get_clicked_square() and owns
     the selection logic on top.
@@ -22,5 +20,10 @@ class InputHandler:
         if not clicked:
             return None
 
-        mouse_x, mouse_y = pygame.mouse.get_pos()
-        return self.renderer.screen_to_square(mouse_x, mouse_y)
+        mx, my = pygame.mouse.get_pos()
+        return self.renderer.screen_to_square(mx, my)
+
+    def get_hovered_square(self) -> int | None:
+        """Returns the board square currently under the mouse, or None."""
+        mx, my = pygame.mouse.get_pos()
+        return self.renderer.screen_to_square(mx, my)
