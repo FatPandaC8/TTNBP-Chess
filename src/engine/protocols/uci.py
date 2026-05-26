@@ -78,8 +78,29 @@ class UCIProtocol:
                     self.board.push_uci(m)
 
     def _handle_go(self, command: str):
-        move = self.agent.get_move(self.board)
-        self._send(f"bestmove {move.uci()}")
+        tokens = command.split()
+        time_limit = None
+
+        if "movetime" in tokens:
+            idx = tokens.index("movetime")
+            time_limit = int(tokens[idx + 1]) / 1000.0
+
+        elif self.board.turn == chess.WHITE and "wtime" in tokens:
+            idx  = tokens.index("wtime")
+            wtime = int(tokens[idx + 1]) / 1000.0
+            winc  = int(tokens[tokens.index("winc") + 1]) / 1000.0 if "winc" in tokens else 0
+            time_limit = wtime / 30 + winc
+
+        elif self.board.turn == chess.BLACK and "btime" in tokens:
+            idx   = tokens.index("btime")
+            btime = int(tokens[idx + 1]) / 1000.0
+            binc  = int(tokens[tokens.index("binc") + 1]) / 1000.0 if "binc" in tokens else 0
+            time_limit = btime / 30 + binc
+
+        move = self.agent.get_move(self.board, time_limit=time_limit)
+
+        if move is not None:
+            self._send(f"bestmove {move.uci()}")
 
     def _handle_newgame(self) -> None:
         self.board.reset()

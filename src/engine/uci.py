@@ -29,7 +29,7 @@ def build_agent() -> Agent:
                 heuristics=heuristics,
             )
         )
-        .with_depth(2)
+        .with_depth(64)
     )
 
 

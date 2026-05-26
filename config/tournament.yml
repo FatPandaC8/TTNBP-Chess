@@ -1,7 +1,13 @@
 tournament:
-  games: 50
-  concurrency: 2
-  tc: "1+0.1"
+  games: 3
+  concurrency: 1
+  tc: "5+0.1"
+
+  opening:
+    file: "resources/opening/8moves_v3.pgn"
+    format: "pgn"
+    order: "random"
+    plies: 8
 
   opening:
     file: "resources/opening/8moves_v3.pgn"
