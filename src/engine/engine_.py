@@ -13,6 +13,7 @@ from engine.evaluation.eval_pst_only import PSTOnlyEvaluator
 from engine.search.algorithms.bach.search import SimpleSearcher
 from engine.utils.decorators import timer_decorator
 from engine.search.algorithms.thanh.search import BasicSearcher
+from engine.search.algorithms.nhuan.search import NhuanSearch
 
 class Engine:
     def __init__(self):
@@ -35,17 +36,17 @@ class Engine:
             AIAgent("#1", time_limit)
             .with_search(
                 SimpleSearcher(
-                    evaluator=evaluator_stockfish_like,
+                    evaluator=evaluator_full,
                     logger=self.logger,
                     tt=main_tt
                 )
             )
-            .with_depth(8)
+            .with_depth(20)
         )
 
         self.black_agent = (
             AIAgent("#2", time_limit)
-            .with_search(BasicSearcher(evaluator=evaluator_full, logger=self.logger))
+            .with_search(NhuanSearch(evaluator=evaluator_full, logger=self.logger))
             .with_depth(2)
         )
 
