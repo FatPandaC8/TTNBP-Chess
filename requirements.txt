@@ -1,3 +1,4 @@
 python-chess
 pyyaml
+pygame
 optuna
