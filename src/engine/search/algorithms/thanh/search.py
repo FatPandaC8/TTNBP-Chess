@@ -3,10 +3,9 @@ import chess
 import chess.polyglot
 
 from engine.evaluation.eval import Evaluator
-from ...cache.tranposition_table import TranspositionTable, TT_EXACT, TT_LOWER, TT_UPPER
+from engine.search.cache.tranposition_table import TranspositionTable, TT_EXACT, TT_LOWER, TT_UPPER
 from engine.search.interface import BaseSearch
 from engine.utils.logger import Logger
-from engine.search.algorithms.search import SearchTimer
 
 INFINITY = 9_999_999
 NEGATIVE_INFINITY = -INFINITY
@@ -17,7 +16,6 @@ class BasicSearcher(BaseSearch):
     def __init__(self, evaluator: Evaluator, logger: Logger):
         super().__init__(evaluator, logger)
         self.tt = TranspositionTable()
-        self.timer = SearchTimer()
 
     def _quiescence(self, board: chess.Board, alpha: int, beta: int) -> int:
         self.timer.nodes += 1
@@ -35,7 +33,7 @@ class BasicSearcher(BaseSearch):
 
         for move in captures:
             if self.timer.should_stop():
-                return 0
+                raise TimeoutError
 
             board.push(move)
             score = -self._quiescence(board, -beta, -alpha)
@@ -92,7 +90,7 @@ class BasicSearcher(BaseSearch):
 
         for move in moves:
             if self.timer.should_stop():
-                return 0
+                raise TimeoutError
 
             board.push(move)
             score = -self._negamax(board, depth - 1, -beta, -alpha, ply + 1, True)
@@ -143,6 +141,7 @@ class BasicSearcher(BaseSearch):
                 if tt_entry and tt_entry.best_move:
                     best_move = tt_entry.best_move
 
+                self._save_best(best_move, best_score)
                 self.logger.log_search(
                     best_score,
                     best_move,
@@ -151,7 +150,3 @@ class BasicSearcher(BaseSearch):
                 )
 
         return best_score, best_move
-    
-
-
-    

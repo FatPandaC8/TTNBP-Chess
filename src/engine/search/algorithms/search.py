@@ -1,10 +1,10 @@
 import chess
 import time
-from engine.evaluation.eval import Evaluator
-from ..cache.tranposition_table import TranspositionTable  , TT_EXACT, TT_LOWER, TT_UPPER
 import chess.polyglot
-from  ..heuristic.history import HistoryTable
-from ..heuristic.killer_move import KillerMoves
+from engine.evaluation.eval import Evaluator
+from engine.search.cache.tranposition_table import TranspositionTable  , TT_EXACT, TT_LOWER, TT_UPPER
+from engine.search.heuristic.history import HistoryTable
+from engine.search.heuristic.killer_move import KillerMoves
 from engine.search.interface import BaseSearch
 from engine.utils.logger import Logger
 
@@ -21,33 +21,11 @@ NULL_MOVE_MIN_DEPTH = 3
 ASPIRATION_MIN_DEPTH = 4
 ASPIRATION_DELTA = 50
 
-class SearchTimer:
-    """Quản lý thời gian và đếm Nodes"""
-    __slots__ = ['start_time', 'time_limit', 'nodes']
-
-    def __init__(self):
-        self.start_time = 0.0
-        self.time_limit = None
-        self.nodes = 0
-
-    def start(self, time_limit=None):
-        self.start_time = time.perf_counter()
-        self.time_limit = time_limit
-        self.nodes = 0
-
-    def should_stop(self) -> bool:
-        if self.time_limit is None:
-            return False
-        if (self.nodes & 2047) == 0:
-            return (time.perf_counter() - self.start_time) >= self.time_limit
-        return False
-
 class Searcher(BaseSearch):
     def __init__(self, evaluator: Evaluator, logger: Logger):
         super().__init__(evaluator, logger)
-        
+
         self.tt = TranspositionTable()
-        self.timer = SearchTimer()
         self.history_table = HistoryTable()
         self.killer_moves = KillerMoves()
         
@@ -298,6 +276,7 @@ class Searcher(BaseSearch):
                 if tt_entry and tt_entry.best_move:
                     best_move = tt_entry.best_move
 
+                self._save_best(best_move, best_score)
                 self.logger.log_search(best_score, best_move, current_depth, time.perf_counter() - self.timer.start_time)
 
         return best_score, best_move

@@ -18,20 +18,12 @@ class Match:
 
     def play_turn(self) -> chess.Move:
         agent = self.current_agent()
+        move = agent.get_move(self.board.copy())
 
-        board_copy = self.board.copy()
+        if move is None:
+            raise ValueError("Agent returned None")
 
-        try:
-            move = agent.get_move(board_copy)
-
-            if move is None:
-                raise ValueError("Agent returned None")
-
-            self.validate_move(move)
-
-        except Exception as e:
-            raise e
-
+        self.validate_move(move)
         self.board.push(move)
         return move
 

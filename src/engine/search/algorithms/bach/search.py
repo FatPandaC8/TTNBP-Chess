@@ -1,4 +1,3 @@
-import time
 import chess
 import math
 from engine.search.algorithms.bach.entry import EXACT, LOWER, UPPER, TTEntry
@@ -132,6 +131,10 @@ class SimpleSearcher(BaseSearch):
     # Core search
 
     def minimax(self, board: chess.Board, depth: int, alpha: float, beta: float, isMax: bool):
+        self.timer.nodes += 1
+        if self.timer.should_stop():
+            raise TimeoutError
+
         alpha_orig = alpha
 
         # Cache the key — used in TT lookup, store, and get_move
@@ -243,8 +246,6 @@ class SimpleSearcher(BaseSearch):
 
     # Root search with iterative deepening
     def search(self, board, depth, time_limit=None):
-        start = time.time()
-
         moves = list(board.legal_moves)
         if not moves:
             return 0, None
@@ -263,13 +264,14 @@ class SimpleSearcher(BaseSearch):
             for helper_tt in executor.map(helper_worker, tasks):
                 self.tt.merge_tt(helper_tt)   # merge as results arrive
 
-        # iterative deepening
+        self.timer.start(time_limit)
+
         best_score = None
         best_move  = moves[0]          # always-valid fallback
         root_key   = chess.polyglot.zobrist_hash(board)
 
         for curr_depth in range(1, depth + 1):
-            if time_limit is not None and time.time() - start > time_limit:
+            if self.timer.should_stop():
                 break
 
             current_best_score = None
