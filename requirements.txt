@@ -2,3 +2,4 @@ python-chess
 pyyaml
 pygame
 optuna
+orjson

@@ -145,6 +145,20 @@ class PygameRenderer:
         self.board_img = pygame.transform.smoothscale(raw_board, (BOARD_PX, BOARD_PX))
         self.square_size = BOARD_PX // 8
 
+        # --- coordinate font (small, bundled fallback) ---
+        self._coord_font = pygame.font.SysFont("segoeui", 11, bold=True)
+        
+        # --- static cached board layer ---
+        self.static_board_surface = pygame.Surface(
+            (BOARD_PX, BOARD_PX)
+        ).convert()
+
+        # draw board image once
+        self.static_board_surface.blit(self.board_img, (0, 0))
+
+        # draw coordinates once
+        self._draw_coordinates_to(self.static_board_surface)
+
         # --- pieces ---
         pieces_path = os.path.join(assets_dir, "pieces.png")
         self.piece_renderer = Piece(pieces_path, cols=6, rows=2)
@@ -157,8 +171,6 @@ class PygameRenderer:
             'r': 'black_rook',   'q': 'black_queen',  'k': 'black_king',
         }
 
-        # --- coordinate font (small, bundled fallback) ---
-        self._coord_font = pygame.font.SysFont("segoeui", 11, bold=True)
 
         # --- pre-built overlay surfaces (avoids per-frame allocation) ---
         sq = self.square_size
@@ -188,7 +200,10 @@ class PygameRenderer:
         so callers are explicit about what they pass."""
 
         # Layer 0 – board image
-        self.screen.blit(self.board_img, (self.board_offset_x, self.board_offset_y))
+        self.screen.blit(
+            self.static_board_surface,
+            (self.board_offset_x, self.board_offset_y)
+        )
 
         # Layer 1 – last-move highlight (faint, always on)
         if last_move is not None:
@@ -218,9 +233,6 @@ class PygameRenderer:
         if moving_piece and not moving_piece.done:
             self.piece_renderer.draw(self.screen, moving_piece.piece_name,
                                      moving_piece.current_px)
-
-        # Layer 8 – coordinate labels (last, always readable)
-        self._draw_coordinates()
 
     def get_square_size(self) -> int:
         return self.square_size
@@ -303,25 +315,26 @@ class PygameRenderer:
                     self._square_to_screen(square),
                 )
 
-    def _draw_coordinates(self) -> None:
+    def _draw_coordinates_to(self, target: pygame.Surface) -> None:
         files = "abcdefgh"
         sq = self.square_size
-        bx = self.board_offset_x
-        by = self.board_offset_y
 
         for i in range(8):
-            # Alternate label color to blend into the square it sits on
+            # File labels
             on_light = (i % 2 == 0)
 
-            # File labels — bottom-right of each square in the last rank row
             f_color = COORD_ON_LIGHT if on_light else COORD_ON_DARK
-            f_surf  = self._coord_font.render(files[i], True, f_color)
-            fx = bx + i * sq + sq - f_surf.get_width() - 3
-            fy = by + 8 * sq - f_surf.get_height() - 2
-            self.screen.blit(f_surf, (fx, fy))
+            f_surf = self._coord_font.render(files[i], True, f_color)
 
-            # Rank labels — top-left of each square in the first file column
+            fx = i * sq + sq - f_surf.get_width() - 3
+            fy = 8 * sq - f_surf.get_height() - 2
+
+            target.blit(f_surf, (fx, fy))
+
+            # Rank labels
             r_on_light = ((7 - i) % 2 == 0)
+
             r_color = COORD_ON_LIGHT if r_on_light else COORD_ON_DARK
-            r_surf  = self._coord_font.render(str(8 - i), True, r_color)
-            self.screen.blit(r_surf, (bx + 3, by + i * sq + 3))
+            r_surf = self._coord_font.render(str(8 - i), True, r_color)
+
+            target.blit(r_surf, (3, i * sq + 3))

@@ -22,6 +22,7 @@ HISTORY_MAX   = 10_000
 NULL_MOVE_R   = 3
 LMR_MIN_DEPTH = 3
 LMR_MIN_MOVE  = 3
+MATE_SCORE = 100000
 
 INF = float("inf")
 
@@ -54,16 +55,20 @@ def split_moves(moves, k):
 
 
 def helper_worker(args):
-    """
-    Plain alpha-beta, no LMR, no null-move — keeps TT entries clean.
-    We only want move ordering hints, not pruned-score bounds.
-    """
     evaluator, board_fen, depth, root_moves = args
     board    = chess.Board(board_fen)
     local_tt = TranspositionTable()
-    searcher = SimpleSearcher(evaluator=evaluator, logger=Logger(), tt=local_tt)
-    searcher.helper_search(board, depth, root_moves)
-    # Only export deep entries so shallow noise doesn't pollute main TT
+    searcher = SimpleSearcher(evaluator=evaluator, logger=None, tt=local_tt)
+    # Give the helper worker a dummy timer that never stops so it doesn't crash on self.timer
+    class DummyTimer:
+        nodes = 0
+        def should_stop(self): return False
+    searcher.timer = DummyTimer()
+    
+    try:
+        searcher.helper_search(board, depth, root_moves)
+    except TimeoutError:
+        pass
     return local_tt.export_entries(min_depth=4)
 
 
@@ -74,10 +79,7 @@ class SimpleSearcher(BaseSearch):
         self.tt           = tt
         self.killer_moves = {}
         self.history      = {}
-        # When True, minimax skips LMR and null-move (used in pre-search)
         self._plain_search = False
-
-    #  Heuristic tables
 
     def _store_killer(self, depth, move):
         killers = self.killer_moves.setdefault(depth, [])
@@ -123,12 +125,12 @@ class SimpleSearcher(BaseSearch):
         i = min(move_idx, _MAX_MOVES - 1)
         return LMR_TABLE[d][i]
 
-    #  Core alpha-beta
-
     def minimax(self, board: chess.Board, depth: int, alpha: float, beta: float, isMax: bool):
-        self.timer.nodes += 1
+        # 1. FIX: Check timer inside the deep recursion loop
         if self.timer.should_stop():
             raise TimeoutError
+
+        self.timer.nodes += 1
 
         alpha_orig = alpha
         key        = _board_key(board)
@@ -144,13 +146,17 @@ class SimpleSearcher(BaseSearch):
         if in_check and depth == 0:
             depth = 1
 
-        if depth == 0 or board.is_game_over():
+        if board.is_checkmate():
+            return -MATE_SCORE
+
+        if board.is_stalemate() or board.is_insufficient_material():
+            return 0
+
+        if depth == 0:
             score = self.evaluator.evaluate(board)
             self.tt.store(TTEntry(key=key, depth=0, score=score, flag=EXACT))
             return score
 
-        # Null-move pruning — disabled during pre-search to avoid storing
-        # aggressive LOWER bounds that the main search would trust blindly.
         if (not self._plain_search
                 and not in_check
                 and depth >= NULL_MOVE_R + 1
@@ -176,7 +182,6 @@ class SimpleSearcher(BaseSearch):
             board.push(move)
             in_check_after = board.is_check()
 
-            # LMR - disabled during pre-search for same reason as null-move
             reduction = (0 if self._plain_search
                          else self._lmr(depth, i, is_quiet, in_check_after))
 
@@ -223,8 +228,6 @@ class SimpleSearcher(BaseSearch):
         self.tt.store(TTEntry(key=key, depth=depth, score=best, flag=flag, move=best_move))
         return best
 
-    #  Helper / pre-search (plain alpha-beta, no LMR, no null-move)
-
     def helper_search(self, board, depth, root_moves=None):
         self._plain_search = True
         is_max = board.turn == chess.WHITE
@@ -242,8 +245,6 @@ class SimpleSearcher(BaseSearch):
 
         self._plain_search = False
         return best
-
-    #  Root search with iterative deepening
 
     def search(self, board, depth, time_limit=None):
         moves = list(board.legal_moves)
@@ -272,24 +273,27 @@ class SimpleSearcher(BaseSearch):
         best_move  = moves[0]
         is_max     = board.turn == chess.WHITE
 
-        for curr_depth in range(1, depth + 1):
-            if self.timer.should_stop():
-                break
+        # 2. FIX: Wrap the entire iterative deepening loop calculation block in a try-except.
+        # This catches the TimeoutError raised deep within minimax instantly.
+        try:
+            for curr_depth in range(1, depth + 1):
+                if self.timer.should_stop():
+                    break
 
-            current_best_score = None
-            current_best_move  = None
+                current_best_score = None
+                current_best_move  = None
 
-            root_key = _board_key(board)
-            ordered  = self._order_moves(
-                board, moves,
-                tt_move=self.tt.get_move(root_key),
-                depth=0
-            )
+                root_key = _board_key(board)
+                ordered  = self._order_moves(
+                    board, moves,
+                    tt_move=self.tt.get_move(root_key),
+                    depth=0
+                )
 
-            try:
                 for move in ordered:
-                    # Full window per root move - so no root move is pruned
-                    # before it gets a fair evaluation.
+                    if self.timer.should_stop():
+                        raise TimeoutError
+
                     board.push(move)
                     score = self.minimax(
                         board, curr_depth - 1, -INF, INF,
@@ -306,14 +310,15 @@ class SimpleSearcher(BaseSearch):
                             current_best_score = score
                             current_best_move  = move
 
-                    self.logger.log_search(best_score, best_move, curr_depth, 0)
+                    self.logger.log_search(current_best_score, current_best_move, curr_depth, 0)
 
-            except TimeoutError:
-                # Depth incomplete - keep last fully-searched depth's result
-                break
+                # Only commit this completed depth's results to our definitive return values
+                if current_best_move is not None:
+                    best_score = current_best_score
+                    best_move  = current_best_move
 
-            if current_best_move is not None:
-                best_score = current_best_score
-                best_move  = current_best_move
+        except TimeoutError:
+            # We instantly exited mid-search; loop stops here and preserves the last complete depth.
+            pass
 
         return best_score if best_score is not None else 0, best_move

@@ -12,8 +12,9 @@ from engine.evaluation.eval_stockfish_like import StockfishLikeEvaluator
 from engine.evaluation.eval_pst_only import PSTOnlyEvaluator
 from engine.search.algorithms.bach.search import SimpleSearcher
 from engine.utils.decorators import timer_decorator
-from engine.search.algorithms.thanh.search import BasicSearcher
-from engine.search.algorithms.nhuan.search import NhuanSearch
+# from engine.search.algorithms.thanh.search import BasicSearcher
+# from engine.search.algorithms.nhuan.search import NhuanSearch
+from engine.search.algorithms.search import Searcher
 
 class Engine:
     def __init__(self):
@@ -41,13 +42,13 @@ class Engine:
                     tt=main_tt
                 )
             )
-            .with_depth(20)
+            .with_depth(4)
         )
 
         self.black_agent = (
             AIAgent("#2", time_limit)
-            .with_search(NhuanSearch(evaluator=evaluator_full, logger=self.logger))
-            .with_depth(2)
+            .with_search(Searcher(evaluator=evaluator_full, logger=self.logger))
+            .with_depth(4)
         )
 
     def _make_match(self) -> Match:
