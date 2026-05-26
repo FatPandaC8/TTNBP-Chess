@@ -1,0 +1,210 @@
+Microsoft Windows [Version 10.0.26200.8457]
+(c) Microsoft Corporation. All rights reserved.
+
+E:\UET\TTNBP-Chess>docker compose run --rm chess-engine python scripts/benchmark_evals.py > results.txt
+ Container ttnbp-chess-chess-engine-run-aea462569d4d Creating 
+ Container ttnbp-chess-chess-engine-run-aea462569d4d Created 
+
+E:\UET\TTNBP-Chess>docker compose run --rm chess-engine python scripts/mark1.py
+Container ttnbp-chess-chess-engine-run-5ff3f11c6d39 Creating 
+Container ttnbp-chess-chess-engine-run-5ff3f11c6d39 Created 
+================================================================================
+FEN: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+
+--- Evaluator ---
+depth=1  avg_score= 144.00  best_move=g1f3  avg_time=0.0012s
+depth=2  avg_score=   0.00  best_move=g1f3  avg_time=0.0069s
+depth=3  avg_score= 126.00  best_move=g1f3  avg_time=0.0248s
+depth=4  avg_score=   0.00  best_move=g1f3  avg_time=0.1267s
+
+--- Balanced ---
+depth=1  avg_score= 144.00  best_move=g1f3  avg_time=0.0018s
+depth=2  avg_score=   0.00  best_move=g1f3  avg_time=0.0098s
+depth=3  avg_score= 126.00  best_move=g1f3  avg_time=0.0401s
+depth=4  avg_score=   0.00  best_move=g1f3  avg_time=0.2103s
+
+--- StockfishLike ---
+depth=1  avg_score= 158.00  best_move=g1f3  avg_time=0.0027s
+depth=2  avg_score=   0.00  best_move=g1f3  avg_time=0.0136s
+depth=3  avg_score= 140.00  best_move=g1f3  avg_time=0.0628s
+depth=4  avg_score=   0.00  best_move=g1f3  avg_time=0.3175s
+
+================================================================================
+FEN: r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 3
+
+--- Evaluator ---
+depth=1  avg_score= 205.00  best_move=b1c3  avg_time=0.0028s
+depth=2  avg_score=  61.00  best_move=b1c3  avg_time=0.0459s
+depth=3  avg_score=  68.00  best_move=c4d5  avg_time=0.1083s
+depth=4  avg_score=  68.00  best_move=c4d5  avg_time=0.2960s
+
+--- Balanced ---
+depth=1  avg_score= 205.00  best_move=b1c3  avg_time=0.0039s
+depth=2  avg_score=  61.00  best_move=b1c3  avg_time=0.1006s
+depth=3  avg_score=  68.00  best_move=c4d5  avg_time=0.2201s
+depth=4  avg_score=  68.00  best_move=c4d5  avg_time=0.2856s
+
+--- StockfishLike ---
+depth=1  avg_score= 232.00  best_move=b1c3  avg_time=0.0051s
+depth=2  avg_score=  81.00  best_move=b1c3  avg_time=0.1194s
+depth=3  avg_score= 126.00  best_move=b1c3  avg_time=0.4018s
+depth=4  avg_score= 126.00  best_move=b1c3  avg_time=0.4595s
+
+================================================================================
+FEN: r2q1rk1/pp2bppp/2n1pn2/2bp4/2B5/2N2NP1/PP2PPBP/R1BQ1RK1 w - - 2 9
+
+--- Evaluator ---
+depth=1  avg_score= 413.00  best_move=c4d3  avg_time=0.0088s
+depth=2  avg_score= 413.00  best_move=c4d3  avg_time=0.2819s
+depth=3  avg_score= 413.00  best_move=c4d3  avg_time=0.2851s
+depth=4  avg_score= 413.00  best_move=c4d3  avg_time=0.2884s
+
+--- Balanced ---
+depth=1  avg_score= 413.00  best_move=c4d3  avg_time=0.0170s
+depth=2  avg_score= 368.00  best_move=c4b5  avg_time=0.7727s
+depth=3  avg_score= 368.00  best_move=c4b5  avg_time=0.9742s
+depth=4  avg_score= 368.00  best_move=c4b5  avg_time=0.9207s
+
+--- StockfishLike ---
+depth=1  avg_score= 208.00  best_move=c4d3  avg_time=0.0244s
+depth=2  avg_score= 208.00  best_move=c4d3  avg_time=0.6213s
+depth=3  avg_score= 208.00  best_move=c4d3  avg_time=0.6111s
+depth=4  avg_score= 208.00  best_move=c4d3  avg_time=0.6150s
+
+
+
+E:\UET\TTNBP-Chess>docker compose run --rm chess-engine python scripts/mark1.py
+Container ttnbp-chess-chess-engine-run-fd125543da83 Creating 
+Container ttnbp-chess-chess-engine-run-fd125543da83 Created 
+================================================================================
+FEN: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+
+--- Evaluator ---
+depth=1  avg_score= 144.00  best_move=g1f3  avg_time=0.0015s
+depth=2  avg_score=   0.00  best_move=g1f3  avg_time=0.0063s
+depth=3  avg_score= 126.00  best_move=g1f3  avg_time=0.0244s
+depth=4  avg_score=   0.00  best_move=g1f3  avg_time=0.1237s
+
+--- Balanced ---
+depth=1  avg_score= 144.00  best_move=g1f3  avg_time=0.0020s
+depth=2  avg_score=   0.00  best_move=g1f3  avg_time=0.0090s
+depth=3  avg_score= 126.00  best_move=g1f3  avg_time=0.0417s
+depth=4  avg_score=   0.00  best_move=g1f3  avg_time=0.2125s
+
+--- StockfishLike ---
+depth=1  avg_score= 158.00  best_move=g1f3  avg_time=0.0028s
+depth=2  avg_score=   0.00  best_move=g1f3  avg_time=0.0135s
+depth=3  avg_score= 140.00  best_move=g1f3  avg_time=0.0613s
+depth=4  avg_score=   0.00  best_move=g1f3  avg_time=0.2951s
+
+================================================================================
+FEN: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1
+
+--- Evaluator ---
+depth=1  avg_score= 144.00  best_move=g8f6  avg_time=0.0011s
+depth=2  avg_score=   0.00  best_move=g8f6  avg_time=0.0059s
+depth=3  avg_score= 126.00  best_move=g8f6  avg_time=0.0234s
+depth=4  avg_score=   0.00  best_move=g8f6  avg_time=0.1485s
+
+--- Balanced ---
+depth=1  avg_score= 144.00  best_move=g8f6  avg_time=0.0017s
+depth=2  avg_score=   0.00  best_move=g8f6  avg_time=0.0093s
+depth=3  avg_score= 126.00  best_move=g8f6  avg_time=0.0355s
+depth=4  avg_score=  12.60  best_move=g8f6  avg_time=0.2499s
+
+--- StockfishLike ---
+depth=1  avg_score= 158.00  best_move=g8f6  avg_time=0.0025s
+depth=2  avg_score=   0.00  best_move=g8f6  avg_time=0.0137s
+depth=3  avg_score= 140.00  best_move=g8f6  avg_time=0.0488s
+depth=4  avg_score= 140.00  best_move=g8f6  avg_time=0.3696s
+
+================================================================================
+FEN: r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 3
+
+--- Evaluator ---
+depth=1  avg_score= 205.00  best_move=b1c3  avg_time=0.0021s
+depth=2  avg_score=  61.00  best_move=b1c3  avg_time=0.0518s
+depth=3  avg_score=  68.00  best_move=c4d5  avg_time=0.1111s
+depth=4  avg_score=  68.00  best_move=c4d5  avg_time=0.2985s
+
+--- Balanced ---
+depth=1  avg_score= 205.00  best_move=b1c3  avg_time=0.0047s
+depth=2  avg_score=  61.00  best_move=b1c3  avg_time=0.1183s
+depth=3  avg_score=  68.00  best_move=c4d5  avg_time=0.2369s
+depth=4  avg_score=  68.00  best_move=c4d5  avg_time=0.3128s
+
+--- StockfishLike ---
+depth=1  avg_score= 232.00  best_move=b1c3  avg_time=0.0062s
+depth=2  avg_score=  81.00  best_move=b1c3  avg_time=0.1350s
+depth=3  avg_score= 126.00  best_move=b1c3  avg_time=0.4444s
+depth=4  avg_score= 126.00  best_move=b1c3  avg_time=0.4681s
+
+================================================================================
+FEN: r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 2 3
+
+--- Evaluator ---
+depth=1  avg_score=  65.00  best_move=g8f6  avg_time=0.0041s
+depth=2  avg_score= -61.00  best_move=g8f6  avg_time=0.0351s
+depth=3  avg_score=  11.00  best_move=f8e7  avg_time=0.2873s
+depth=4  avg_score=  11.00  best_move=f8e7  avg_time=0.4511s
+
+--- Balanced ---
+depth=1  avg_score=  65.00  best_move=g8f6  avg_time=0.0078s
+depth=2  avg_score= -61.00  best_move=g8f6  avg_time=0.0689s
+depth=3  avg_score= -61.00  best_move=g8f6  avg_time=0.3124s
+depth=4  avg_score= -61.00  best_move=g8f6  avg_time=0.3244s
+
+--- StockfishLike ---
+depth=1  avg_score=  59.00  best_move=g8f6  avg_time=0.0083s
+depth=2  avg_score= -81.00  best_move=g8f6  avg_time=0.0986s
+depth=3  avg_score= -81.00  best_move=g8f6  avg_time=0.3096s
+depth=4  avg_score= -81.00  best_move=g8f6  avg_time=0.3133s
+
+================================================================================
+FEN: r2q1rk1/pp2bppp/2n1pn2/2bp4/2B5/2N2NP1/PP2PPBP/R1BQ1RK1 w - - 2 9
+
+--- Evaluator ---
+depth=1  avg_score= 413.00  best_move=c4d3  avg_time=0.0099s
+depth=2  avg_score= 413.00  best_move=c4d3  avg_time=0.2702s
+depth=3  avg_score= 413.00  best_move=c4d3  avg_time=0.2800s
+depth=4  avg_score= 413.00  best_move=c4d3  avg_time=0.2652s
+
+--- Balanced ---
+depth=1  avg_score= 413.00  best_move=c4d3  avg_time=0.0174s
+depth=2  avg_score= 368.00  best_move=c4b5  avg_time=0.8070s
+depth=3  avg_score= 368.00  best_move=c4b5  avg_time=1.0115s
+depth=4  avg_score= 368.00  best_move=c4b5  avg_time=1.0038s
+
+--- StockfishLike ---
+depth=1  avg_score= 208.00  best_move=c4d3  avg_time=0.0261s
+depth=2  avg_score= 208.00  best_move=c4d3  avg_time=0.6638s
+depth=3  avg_score= 208.00  best_move=c4d3  avg_time=0.6715s
+depth=4  avg_score= 208.00  best_move=c4d3  avg_time=0.6692s
+
+================================================================================
+FEN: r2q1rk1/pp2bppp/2n1pn2/2bp4/2B5/2N2NP1/PP2PPBP/R1BQ1RK1 b - - 2 9
+
+--- Evaluator ---
+depth=1  avg_score= 296.00  best_move=d5c4  avg_time=0.0081s
+depth=2  avg_score= 296.00  best_move=d5c4  avg_time=0.2743s
+depth=3  avg_score= 296.00  best_move=d5c4  avg_time=0.2704s
+depth=4  avg_score= 296.00  best_move=d5c4  avg_time=0.2715s
+
+--- Balanced ---
+depth=1  avg_score= 296.00  best_move=d5c4  avg_time=0.0132s
+depth=2  avg_score= 296.00  best_move=d5c4  avg_time=0.7013s
+depth=3  avg_score= 296.00  best_move=d5c4  avg_time=0.7099s
+depth=4  avg_score= 296.00  best_move=d5c4  avg_time=0.6996s
+
+--- StockfishLike ---
+depth=1  avg_score= 212.00  best_move=d5c4  avg_time=0.0235s
+depth=2  avg_score= 212.00  best_move=d5c4  avg_time=0.4793s
+depth=3  avg_score= 212.00  best_move=d5c4  avg_time=0.4810s
+
+depth=4  avg_score= 212.00  best_move=d5c4  avg_time=0.5047s
+
+================================================================================
+SUMMARY (overall avg across all FEN + sides + depths)
+Evaluator     avg_score= 158.50  avg_time=0.1344s
+Balanced      avg_score= 147.40  avg_time=0.2880s
+StockfishLike  avg_score= 116.54  avg_time=0.2546s

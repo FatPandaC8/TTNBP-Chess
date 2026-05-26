@@ -9,6 +9,12 @@ tournament:
     order: "random"
     plies: 8
 
+  opening:
+    file: "resources/opening/8moves_v3.pgn"
+    format: "pgn"
+    order: "random"
+    plies: 8
+
 engines:
   - name: MyEngine
     cmd: bin/my_engine
