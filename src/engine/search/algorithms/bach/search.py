@@ -1,324 +1,268 @@
 import chess
 import chess.polyglot
 import os
-import math
+import time
+from multiprocessing import Manager
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from engine.search.algorithms.bach.entry import EXACT, LOWER, UPPER, TTEntry
 from engine.search.algorithms.bach.tt import TranspositionTable
 from engine.search.interface import BaseSearch
-from concurrent.futures import ProcessPoolExecutor
-from engine.utils.logger import Logger
 
+# fmt: off
 PIECE_VALUE = {
-    chess.PAWN:   100,
-    chess.KNIGHT: 320,
-    chess.BISHOP: 330,
-    chess.ROOK:   500,
-    chess.QUEEN:  900,
-    chess.KING:   20000,
+    chess.PAWN: 100, chess.KNIGHT: 320, chess.BISHOP: 330,
+    chess.ROOK: 500, chess.QUEEN:  900, chess.KING:  20000,
 }
 
-MAX_KILLERS   = 2
-HISTORY_MAX   = 10_000
-NULL_MOVE_R   = 3
-LMR_MIN_DEPTH = 3
-LMR_MIN_MOVE  = 3
-MATE_SCORE = 100000
+MATE_SCORE         = 100_000
+PARALLEL_THRESHOLD = 4      
+INF                = float("inf")
 
-INF = float("inf")
+_S_TT   = 10_000_000
+_S_CAP  =  1_000_000
+_S_PROM =    750_000
+# fmt: on
 
-_MAX_DEPTH = 64
-_MAX_MOVES = 128
-LMR_TABLE = [
-    [
-        max(1, min(
-            int(0.5 + math.log(max(d, 1)) * math.log(max(i + 1, 1)) / 2.25),
-            d - 2
-        )) if (d >= LMR_MIN_DEPTH and i >= LMR_MIN_MOVE) else 0
-        for i in range(_MAX_MOVES)
-    ]
-    for d in range(_MAX_DEPTH)
-]
+_zobrist_hash = chess.polyglot.zobrist_hash
 
-_SCORE_TT      = 10_000_000
-_SCORE_CAPTURE =  1_000_000
-_SCORE_KILLER  =    500_000
+# Global Process pool prevents process spawning overhead crashes
+GLOBAL_POOL = ProcessPoolExecutor(max_workers=max(1, os.cpu_count() or 4))
+
+# FIX 1: Persistent global Manager and Shared Dictionary memory footprint
+# This ensures your engine retains its brain memory across consecutive turns!
+GLOBAL_MANAGER = Manager()
+GLOBAL_SHARED_TT_DICT = GLOBAL_MANAGER.dict()
 
 
-def _board_key(board: chess.Board) -> int:
-    return chess.polyglot.zobrist_hash(board)
+class _ParallelWorkerTimer:
+    def __init__(self, end_time):
+        self.end_time = end_time
+        self.nodes = 0
+
+    def should_stop(self):
+        if self.end_time is None: return False
+        return time.time() >= self.end_time
 
 
-def split_moves(moves, k):
-    moves = list(moves)
-    chunk_size = math.ceil(len(moves) / k)
-    return [moves[i * chunk_size: (i + 1) * chunk_size] for i in range(k)]
-
-
-def helper_worker(args):
-    evaluator, board_fen, depth, root_moves = args
-    board    = chess.Board(board_fen)
-    local_tt = TranspositionTable()
-    searcher = SimpleSearcher(evaluator=evaluator, logger=None, tt=local_tt)
-    # Give the helper worker a dummy timer that never stops so it doesn't crash on self.timer
-    class DummyTimer:
-        nodes = 0
-        def should_stop(self): return False
-    searcher.timer = DummyTimer()
+def _worker(args):
+    """Evaluates a unique root move with full historical shared memory caching."""
+    evaluator, fen, depth, move_uci, end_time = args
+    board = chess.Board(fen)
     
+    local_tt = TranspositionTable()
+    if hasattr(local_tt, '_dict'):
+        # Re-attach directly to the persistent global brain mapping
+        local_tt._dict = GLOBAL_SHARED_TT_DICT
+        
+    searcher = SimpleSearcher(evaluator=evaluator, logger=None, tt=local_tt)
+    searcher.timer = _ParallelWorkerTimer(end_time)
+    searcher._root_ply = len(board.move_stack)
+
+    move = chess.Move.from_uci(move_uci)
+    board.push(move)
     try:
-        searcher.helper_search(board, depth, root_moves)
+        # Full open window prevents false beta cuts across tasks
+        score = -searcher.negamax(board, depth - 1, -INF, INF)
     except TimeoutError:
-        pass
-    return local_tt.export_entries(min_depth=4)
+        score = None
+    board.pop()
+    
+    return move_uci, score
 
 
 class SimpleSearcher(BaseSearch):
 
     def __init__(self, evaluator, logger, tt):
         super().__init__(evaluator, logger)
-        self.tt           = tt
-        self.killer_moves = {}
-        self.history      = {}
-        self._plain_search = False
+        self.tt = tt
+        # Sync main thread's local TT object to the same global backing dict
+        if hasattr(self.tt, '_dict'):
+            self.tt._dict = GLOBAL_SHARED_TT_DICT
+        self._root_ply = 0
 
-    def _store_killer(self, depth, move):
-        killers = self.killer_moves.setdefault(depth, [])
-        if move not in killers:
-            killers.insert(0, move)
-            if len(killers) > MAX_KILLERS:
-                killers.pop()
+    def _eval(self, board):
+        raw = self.evaluator.evaluate(board)
+        return raw if board.turn == chess.WHITE else -raw
 
-    def _update_history(self, move, depth):
-        k = (move.from_square, move.to_square)
-        self.history[k] = min(self.history.get(k, 0) + depth * depth, HISTORY_MAX)
-
-    def _order_moves(self, board, moves, tt_move=None, depth=0):
-        killers = self.killer_moves.get(depth, ())
-        history = self.history
-        pv      = PIECE_VALUE
-        scored  = []
-
-        for move in moves:
-            if move == tt_move:
-                s = _SCORE_TT
-            elif board.is_capture(move):
-                victim   = board.piece_at(move.to_square)
-                attacker = board.piece_at(move.from_square)
-                mvv_lva  = (pv[victim.piece_type] - pv[attacker.piece_type]
-                            if victim and attacker else 0)
-                s = _SCORE_CAPTURE + mvv_lva
-            elif move in killers:
-                s = _SCORE_KILLER - killers.index(move)
-            else:
-                s = history.get((move.from_square, move.to_square), 0)
-
-            scored.append((s, move))
-
-        scored.sort(key=lambda x: x[0], reverse=True)
-        return [m for _, m in scored]
-
-    @staticmethod
-    def _lmr(depth, move_idx, is_quiet, in_check):
-        if not is_quiet or in_check:
-            return 0
-        d = min(depth,    _MAX_DEPTH - 1)
-        i = min(move_idx, _MAX_MOVES - 1)
-        return LMR_TABLE[d][i]
-
-    def minimax(self, board: chess.Board, depth: int, alpha: float, beta: float, isMax: bool):
-        # 1. FIX: Check timer inside the deep recursion loop
-        if self.timer.should_stop():
-            raise TimeoutError
-
-        self.timer.nodes += 1
-
-        alpha_orig = alpha
-        key        = _board_key(board)
-
-        tt_score, alpha, beta = self.tt.lookup(key, depth, alpha, beta)
-        if tt_score is not None:
-            return tt_score
-        if alpha >= beta:
-            return alpha
-
-        in_check = board.is_check()
-
-        if in_check and depth == 0:
-            depth = 1
-
+    def _terminal(self, board):
         if board.is_checkmate():
-            return -MATE_SCORE
-
+            return -(MATE_SCORE - (len(board.move_stack) - self._root_ply))
         if board.is_stalemate() or board.is_insufficient_material():
             return 0
+        if board.is_repetition(2) or board.is_fifty_moves():
+            return 0
+        return None
 
-        if depth == 0:
-            score = self.evaluator.evaluate(board)
-            self.tt.store(TTEntry(key=key, depth=0, score=score, flag=EXACT))
-            return score
+    def _move_score(self, board, move, tt_move):
+        if move == tt_move:  return _S_TT
+        if board.is_capture(move):
+            v  = board.piece_at(move.to_square)
+            a  = board.piece_at(move.from_square)
+            vt = v.piece_type if v else chess.PAWN
+            at = a.piece_type if a else chess.PAWN
+            return _S_CAP + PIECE_VALUE[vt] - PIECE_VALUE[at]
+        if move.promotion:
+            return _S_PROM + PIECE_VALUE.get(move.promotion, 0)
+        return 0
 
-        if (not self._plain_search
-                and not in_check
-                and depth >= NULL_MOVE_R + 1
-                and not board.is_variant_end()):
-            board.push(chess.Move.null())
-            null_score = self.minimax(board, depth - 1 - NULL_MOVE_R, alpha, beta, not isMax)
+    def _order(self, board, moves, tt_move=None):
+        return sorted(moves, key=lambda m: self._move_score(board, m, tt_move), reverse=True)
+
+    def quiescence(self, board, alpha, beta):
+        if self.timer.should_stop(): raise TimeoutError
+        self.timer.nodes += 1
+
+        t = self._terminal(board)
+        if t is not None: return t
+
+        stand_pat = self._eval(board)
+        if stand_pat >= beta: return stand_pat
+        alpha = max(alpha, stand_pat)
+        best = stand_pat
+
+        # Generate moves: captures + checks + promotions
+        moves = []
+        for move in board.legal_moves:
+            if (board.is_capture(move) or
+                move.promotion or
+                board.gives_check(move)):
+                moves.append(move)
+
+        for move in self._order(board, moves):
+            board.push(move)
+            score = -self.quiescence(board, -beta, -alpha)
             board.pop()
+            if score > best:
+                best = score
+                alpha = max(alpha, score)
+                if alpha >= beta: break
+        return best
 
-            if isMax and null_score >= beta:
-                return null_score
-            if not isMax and null_score <= alpha:
-                return null_score
+    def negamax(self, board, depth, alpha, beta):
+        if self.timer.should_stop(): raise TimeoutError
+        self.timer.nodes += 1
+
+        alpha_orig, beta_orig = alpha, beta
+        key = _zobrist_hash(board)
+
+        tt_score, alpha, beta = self.tt.lookup(key, depth, alpha, beta)
+        if tt_score is not None: return tt_score
+        if alpha >= beta: return tt_score
+
+        if depth >= 3 and not board.is_check():
+            board.push(chess.Move.null())
+            score = -self.negamax(board, depth - 1 - 2, -beta, -beta + 1)
+            board.pop()
+            if score >= beta:
+                return beta
+
+        if board.is_check() and depth == 0: depth = 1
+        t = self._terminal(board)
+        if t is not None: return t
+        if depth == 0: return self.quiescence(board, alpha, beta)
 
         tt_move = self.tt.get_move(key)
-        moves   = self._order_moves(board, board.legal_moves, tt_move=tt_move, depth=depth)
+        best, best_move = -INF, None
 
-        best      = -INF if isMax else INF
-        best_move = None
-
-        for i, move in enumerate(moves):
-            is_quiet = not board.is_capture(move) and move.promotion is None
-
+        for move in self._order(board, board.legal_moves, tt_move=tt_move):
             board.push(move)
-            in_check_after = board.is_check()
-
-            reduction = (0 if self._plain_search
-                         else self._lmr(depth, i, is_quiet, in_check_after))
-
-            if reduction:
-                if isMax:
-                    score = self.minimax(board, depth - 1 - reduction, alpha, alpha + 1, False)
-                    if score > alpha:
-                        score = self.minimax(board, depth - 1, alpha, beta, False)
-                else:
-                    score = self.minimax(board, depth - 1 - reduction, beta - 1, beta, True)
-                    if score < beta:
-                        score = self.minimax(board, depth - 1, alpha, beta, True)
-            else:
-                score = self.minimax(board, depth - 1, alpha, beta, not isMax)
-
+            score = -self.negamax(board, depth - 1, -beta, -alpha)
             board.pop()
 
-            if isMax:
-                if score > best:
-                    best      = score
-                    best_move = move
-                if score > alpha:
-                    alpha = score
-            else:
-                if score < best:
-                    best      = score
-                    best_move = move
-                if score < beta:
-                    beta = score
+            if score > best:
+                best = score
+                best_move = move
+            alpha = max(alpha, score)
+            if alpha >= beta: break
 
-            if alpha >= beta:
-                if best_move and is_quiet:
-                    self._store_killer(depth, best_move)
-                    self._update_history(best_move, depth)
-                break
-
-        if best <= alpha_orig:
-            flag = UPPER
-        elif best >= beta:
-            flag = LOWER
-        else:
-            flag = EXACT
-
+        flag = UPPER if best <= alpha_orig else (LOWER if best >= beta_orig else EXACT)
         self.tt.store(TTEntry(key=key, depth=depth, score=best, flag=flag, move=best_move))
         return best
 
-    def helper_search(self, board, depth, root_moves=None):
-        self._plain_search = True
-        is_max = board.turn == chess.WHITE
-        best   = -INF if is_max else INF
+    def _search_serial(self, board, moves, depth):
+        best_score, best_move = None, moves[0]
+        try:
+            for curr_depth in range(1, depth + 1):
+                if self.timer.should_stop(): break
+                iter_score, iter_move = None, None
+                root_key = _zobrist_hash(board)
+                ordered  = self._order(board, moves, tt_move=self.tt.get_move(root_key))
 
-        for move in root_moves:
-            board.push(move)
-            score = self.minimax(board, depth - 1, -INF, INF, not is_max)
-            board.pop()
+                for move in ordered:
+                    if self.timer.should_stop(): raise TimeoutError
+                    board.push(move)
+                    score = -self.negamax(board, curr_depth - 1, -INF, INF)
+                    board.pop()
 
-            if is_max:
-                best = max(best, score)
-            else:
-                best = min(best, score)
+                    if iter_move is None or score > iter_score:
+                        iter_score, iter_move = score, move
 
-        self._plain_search = False
-        return best
+                if iter_move is not None:
+                    best_score, best_move = iter_score, iter_move
+                    
+        except TimeoutError:
+            pass
+        return best_score or 0, best_move
+
+    def _search_parallel(self, board, moves, depth):
+        root_key = _zobrist_hash(board)
+        best_score, best_move = None, moves[0]
+
+        for curr_depth in range(1, depth + 1):
+            if self.timer.should_stop():
+                break
+
+            ordered = self._order(board, moves,
+                                tt_move=self.tt.get_move(root_key))
+            fen = board.fen()
+            time_limit = getattr(self.timer, 'time_limit', None)
+            start_time = time.time()
+            end_time = (start_time + time_limit) if time_limit else None
+
+            futures = {}
+            for m in ordered:
+                args = (self.evaluator, fen, curr_depth, m.uci(), end_time)
+                futures[GLOBAL_POOL.submit(_worker, args)] = m
+
+            # Collect results for this depth
+            best_this_depth, best_move_this = None, None
+            while futures:
+                timeout = (end_time - time.time()) if end_time else None
+                if timeout is not None and timeout <= 0:
+                    break
+                try:
+                    for future in as_completed(futures.keys(), timeout=timeout):
+                        move = futures.pop(future)
+                        try:
+                            _, score = future.result()
+                            if score is not None:
+                                if best_this_depth is None or score > best_this_depth:
+                                    best_this_depth, best_move_this = score, move
+                        except Exception:
+                            pass
+                except TimeoutError:
+                    break
+
+            for f in futures:
+                f.cancel()
+
+            if best_move_this is not None:
+                best_score, best_move = best_this_depth, best_move_this
+                # Store in TT for move ordering at next depth
+                self.tt.store(TTEntry(key=root_key, depth=curr_depth,
+                                    score=best_score, flag=EXACT,
+                                    move=best_move))
+
+        return best_score or 0, best_move
 
     def search(self, board, depth, time_limit=None):
         moves = list(board.legal_moves)
-        if not moves:
-            return 0, None
-
-        cpu_count   = os.cpu_count() or 1
-        num_workers = max(1, (cpu_count * 3) // 4)
-
-        helper_depths = list(range(1, depth // 2 + 1))
-        num_workers   = min(num_workers, len(helper_depths))
-
-        move_groups = split_moves(moves, num_workers)
-        tasks = [
-            (self.evaluator, board.fen(), d, move_groups[i])
-            for i, d in enumerate(helper_depths[:num_workers])
-        ]
-
-        with ProcessPoolExecutor(max_workers=num_workers) as executor:
-            for helper_tt in executor.map(helper_worker, tasks):
-                self.tt.merge_tt(helper_tt)
+        if not moves: return 0, None
 
         self.timer.start(time_limit)
+        self._root_ply = len(board.move_stack)
 
-        best_score = None
-        best_move  = moves[0]
-        is_max     = board.turn == chess.WHITE
-
-        # 2. FIX: Wrap the entire iterative deepening loop calculation block in a try-except.
-        # This catches the TimeoutError raised deep within minimax instantly.
-        try:
-            for curr_depth in range(1, depth + 1):
-                if self.timer.should_stop():
-                    break
-
-                current_best_score = None
-                current_best_move  = None
-
-                root_key = _board_key(board)
-                ordered  = self._order_moves(
-                    board, moves,
-                    tt_move=self.tt.get_move(root_key),
-                    depth=0
-                )
-
-                for move in ordered:
-                    if self.timer.should_stop():
-                        raise TimeoutError
-
-                    board.push(move)
-                    score = self.minimax(
-                        board, curr_depth - 1, -INF, INF,
-                        board.turn == chess.WHITE
-                    )
-                    board.pop()
-
-                    if is_max:
-                        if current_best_move is None or score > current_best_score:
-                            current_best_score = score
-                            current_best_move  = move
-                    else:
-                        if current_best_move is None or score < current_best_score:
-                            current_best_score = score
-                            current_best_move  = move
-
-                    self.logger.log_search(current_best_score, current_best_move, curr_depth, 0)
-
-                # Only commit this completed depth's results to our definitive return values
-                if current_best_move is not None:
-                    best_score = current_best_score
-                    best_move  = current_best_move
-
-        except TimeoutError:
-            # We instantly exited mid-search; loop stops here and preserves the last complete depth.
-            pass
-
-        return best_score if best_score is not None else 0, best_move
+        if depth < PARALLEL_THRESHOLD:
+            return self._search_serial(board, moves, depth)
+        else:
+            return self._search_parallel(board, moves, depth)
