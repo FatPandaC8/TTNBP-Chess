@@ -1,5 +1,4 @@
 import os
-import math
 from concurrent.futures import ThreadPoolExecutor
 
 import chess

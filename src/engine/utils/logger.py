@@ -3,7 +3,6 @@ from collections import deque
 import threading
 import atexit
 import time
-import os
 import orjson
 
 from .date_time import timestamp
@@ -18,6 +17,8 @@ class Logger:
         flush_interval=0.05,
         queue_size=4096,
     ):
+        self.cutoff_count = 0
+
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(exist_ok=True)
 
@@ -85,9 +86,6 @@ class Logger:
             if should_flush:
                 self._flush_buffer()
                 last_flush = now
-
-            # tiny sleep prevents CPU spinning
-            time.sleep(0.001)
 
         # final flush during shutdown
         self._flush_buffer()
@@ -178,5 +176,23 @@ class Logger:
             "score": score,
             "depth": depth,
             "time_ms": time_ms,
+            "ts": timestamp()
+        })
+
+    def log_cutoff(self, depth, move):
+        """
+        Useage: find the place of your pruning
+        for example: 
+        if alpha >= beta:
+        
+        Replace with:
+        if alpha >= beta:
+            self.logger.cutoff_count += 1
+            self.logger.log_cutoff(depth, move)
+        """
+        self._write({
+            "type": "cutoff",
+            "move": str(move),
+            "depth": depth,
             "ts": timestamp()
         })
