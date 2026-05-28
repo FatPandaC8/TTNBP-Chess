@@ -1,0 +1,1066 @@
+
+diff --git a/src/engine/ui/pygame/game.py b/src/engine/ui/pygame/game.py
+index 5bf7bfb..e4d88f7 100644
+--- a/src/engine/ui/pygame/game.py
++++ b/src/engine/ui/pygame/game.py
+@@ -7,30 +7,37 @@ import pygame.locals as pg_locals
+ 
+ from engine.game.match import Match
+ from engine.ui.pygame.renderer import (
+-    PygameRenderer, MovingPiece,
+-    WINDOW_W, WINDOW_H, BOARD_PX, H_MARGIN, TOP_BAR_H, SIDE_PANEL_W,
+-    BG_DARK, BG_PANEL, TEXT_PRI, TEXT_SEC,
+-    BTN_BG, BTN_HOVER, BTN_TEXT,
++    PygameRenderer,
++    MovingPiece,
++    WINDOW_W,
++    WINDOW_H,
++    BOARD_PX,
++    H_MARGIN,
++    TOP_BAR_H,
++    SIDE_PANEL_W,
++    BG_DARK,
++    BG_PANEL,
++    TEXT_PRI,
++    TEXT_SEC,
++    BTN_BG,
++    BTN_HOVER,
++    BTN_TEXT,
+     _lerp_color,
+ )
+ from engine.ui.pygame.input_handler import InputHandler
+ from engine.ui.pygame.human_agent import HumanAgent
+ 
+ 
+-# How long the final board position stays visible before game-over overlay
+-# fades in — gives the player time to process the last move.
+-_GAME_OVER_DELAY    = 1.0
++_GAME_OVER_DELAY = 1.0
+ _GAME_OVER_FADE_DUR = 0.35
+ 
+ 
+ class _Button:
+-    """Minimal stateful button with smooth hover colour transition."""
+-
+     def __init__(self, rect: pygame.Rect, label: str, font: pygame.font.Font):
+-        self.rect     = rect
+-        self.label    = label
+-        self.font     = font
+-        self._hover_t = 0.0   # 0 = resting  →  1 = fully hovered
++        self.rect = rect
++        self.label = label
++        self.font = font
++        self._hover_t = 0.0
+ 
+     def update(self, dt: float) -> None:
+         target = 1.0 if self.rect.collidepoint(pygame.mouse.get_pos()) else 0.0
+@@ -39,10 +46,11 @@ class _Button:
+     def draw(self, surface: pygame.Surface) -> None:
+         color = _lerp_color(BTN_BG, BTN_HOVER, self._hover_t)
+         pygame.draw.rect(surface, color, self.rect, border_radius=6)
+-        text_surf = self.font.render(self.label, True, BTN_TEXT)
+-        tx = self.rect.centerx - text_surf.get_width()  // 2
+-        ty = self.rect.centery - text_surf.get_height() // 2
+-        surface.blit(text_surf, (tx, ty))
++
++        text = self.font.render(self.label, True, BTN_TEXT)
++        text_x = self.rect.centerx - text.get_width() // 2
++        text_y = self.rect.centery - text.get_height() // 2
++        surface.blit(text, (text_x, text_y))
+ 
+     def is_clicked(self, event: pygame.event.Event) -> bool:
+         return (
+@@ -53,38 +61,21 @@ class _Button:
+ 
+ 
+ class Game:
+-    """Pygame application shell for chess gameplay.
+-
+-    Responsible for:
+-    - pygame window and event loop
+-    - menu and UI rendering
+-    - delegating gameplay to Match
+-
+-    NOT responsible for:
+-    - board ownership
+-    - move validation
+-    - turn management
+-    - game-over logic
+-    """
+-
+     def __init__(self, match: Match):
+-        self.match   = match
++        self.match = match
+         self.running = True
+-        self._state  = "menu"   # "menu" | "game" | "game_over"
++        self._state = "menu"
+ 
+-        # Non-blocking AI
+-        self._executor  = ThreadPoolExecutor(max_workers=1)
++        self._executor = ThreadPoolExecutor(max_workers=1)
+         self._ai_future = None
+ 
+-        # Animation / timing
+         self._moving_piece: MovingPiece | None = None
+-        self._last_move:    chess.Move  | None = None
+-        self._pulse_t    = 0.0   # selection-ring pulse
+-        self._thinking_t = 0.0   # AI dot animation
++        self._last_move: chess.Move | None = None
++        self._pulse_t = 0.0
++        self._thinking_t = 0.0
+ 
+-        # Game-over fade
+         self._game_over_timer = 0.0
+-        self._overlay_alpha   = 0
++        self._overlay_alpha = 0
+ 
+         assets_dir = os.path.join(os.path.dirname(__file__), "..", "assets")
+ 
+@@ -103,15 +94,11 @@ class Game:
+         self._connect_human_agents()
+ 
+         cx = WINDOW_W // 2
+-        self._btn_play       = _Button(pygame.Rect(cx - 70, 320, 140, 46), "Play",       self._font_md)
++        self._btn_play = _Button(pygame.Rect(cx - 70, 320, 140, 46), "Play", self._font_md)
+         self._btn_play_again = _Button(pygame.Rect(cx - 80, 395, 160, 46), "Play Again", self._font_md)
+ 
+         self.clock = pygame.time.Clock()
+ 
+-    # ------------------------------------------------------------------
+-    # Main loop
+-    # ------------------------------------------------------------------
+-
+     def start_game(self) -> None:
+         while self.running:
+             dt = self.clock.tick(60) / 1000.0
+@@ -120,7 +107,8 @@ class Game:
+                 if event.type == pygame.QUIT:
+                     self.running = False
+                 elif event.type == pygame.KEYDOWN and event.key == pg_locals.K_ESCAPE:
+-                    self.running = False
++                    if not self._try_forward_to_agent(event):
++                        self.running = False
+                 else:
+                     self._handle_event(event)
+ 
+@@ -131,29 +119,37 @@ class Game:
+         self._executor.shutdown(wait=False)
+         pygame.quit()
+ 
+-    # ------------------------------------------------------------------
+-    # Event routing  (KEYDOWN events — not get_pressed — for one-shot actions)
+-    # ------------------------------------------------------------------
+-
+     def _handle_event(self, event: pygame.event.Event) -> None:
+         if self._state == "menu":
+             if self._btn_play.is_clicked(event):
+                 self._state = "game"
+             elif event.type == pygame.KEYDOWN and event.key == pg_locals.K_RETURN:
+                 self._state = "game"
+-
++        elif self._state == "game":
++            self._try_forward_to_agent(event)
+         elif self._state == "game_over":
+             if self._btn_play_again.is_clicked(event):
+                 self._reset()
+             elif event.type == pygame.KEYDOWN and event.key == pg_locals.K_RETURN:
+                 self._reset()
+ 
+-    # ------------------------------------------------------------------
+-    # Update
+-    # ------------------------------------------------------------------
++    def _try_forward_to_agent(self, event: pygame.event.Event) -> bool:
++        if self._state != "game":
++            return False
++
++        agent = self.match.current_agent()
++        if not isinstance(agent, HumanAgent):
++            return False
++
++        promo_move = agent.handle_event(event)
++        if promo_move is not None:
++            self._apply_move(promo_move)
++            return True
++
++        return agent.promotion_picker is not None
+ 
+     def _update(self, dt: float) -> None:
+-        self._pulse_t    += dt
++        self._pulse_t += dt
+         self._thinking_t += dt
+ 
+         if self._state == "menu":
+@@ -162,24 +158,22 @@ class Game:
+             self._update_game(dt)
+         elif self._state == "game_over":
+             self._btn_play_again.update(dt)
+-            fade_progress       = max(0.0, self._game_over_timer - _GAME_OVER_DELAY)
++            fade_progress = max(0.0, self._game_over_timer - _GAME_OVER_DELAY)
+             self._overlay_alpha = int(min(fade_progress / _GAME_OVER_FADE_DUR, 1.0) * 200)
+             self._game_over_timer += dt
+ 
+     def _update_game(self, dt: float) -> None:
+-        # Advance sliding-piece animation each frame
+         if self._moving_piece:
+             self._moving_piece.update(dt)
+             if self._moving_piece.done:
+                 self._moving_piece = None
+-            return   # don't process new moves while a piece is mid-flight
++            return
+ 
+-        # Transition to game_over as soon as the board says it's done
+         if self.match.is_over():
+             if self._state == "game":
+-                self._state           = "game_over"
++                self._state = "game_over"
+                 self._game_over_timer = 0.0
+-                self._overlay_alpha   = 0
++                self._overlay_alpha = 0
+             return
+ 
+         agent = self.match.current_agent()
+@@ -187,31 +181,26 @@ class Game:
+         if isinstance(agent, HumanAgent):
+             move = agent.get_move(self.match.board)
+         else:
+-            # Submit AI work once; poll for result every frame (never blocks)
+             if self._ai_future is None:
+-                board_copy       = self.match.board.copy()
+-                self._ai_future  = self._executor.submit(agent.get_move, board_copy)
++                board_copy = self.match.board.copy()
++                self._ai_future = self._executor.submit(agent.get_move, board_copy)
+                 self._thinking_t = 0.0
+             move = None
+             if self._ai_future.done():
+-                move            = self._ai_future.result()
++                move = self._ai_future.result()
+                 self._ai_future = None
+ 
+         if move is not None:
+             self._apply_move(move)
+ 
+-    # ------------------------------------------------------------------
+-    # Apply move + kick off slide animation
+-    # ------------------------------------------------------------------
+-
+     def _apply_move(self, move: chess.Move) -> None:
+         piece = self.match.board.piece_at(move.from_square)
+         if piece is not None:
+             self._moving_piece = MovingPiece(
+-                piece_name = self.renderer.piece_to_name[piece.symbol()],
+-                from_sq    = move.from_square,
+-                from_px    = self.renderer.square_to_screen(move.from_square),
+-                to_px      = self.renderer.square_to_screen(move.to_square),
++                piece_name=self.renderer.piece_to_name[piece.symbol()],
++                from_sq=move.from_square,
++                from_px=self.renderer.square_to_screen(move.from_square),
++                to_px=self.renderer.square_to_screen(move.to_square),
+             )
+ 
+         try:
+@@ -223,13 +212,8 @@ class Game:
+ 
+         self._last_move = move
+ 
+-    # ------------------------------------------------------------------
+-    # Draw
+-    # ------------------------------------------------------------------
+-
+     def _draw(self) -> None:
+         self.screen.fill(BG_DARK)
+-
+         if self._state == "menu":
+             self._draw_menu()
+         elif self._state == "game":
+@@ -252,22 +236,23 @@ class Game:
+ 
+     def _draw_game(self) -> None:
+         agent = self.match.current_agent()
++        selected = getattr(agent, "selected_square", None)
++        legal_sqs = getattr(agent, "legal_squares", None)
++        promo_picker = getattr(agent, "promotion_picker", None)
+ 
+-        hover_sq  = None
+-        selected  = getattr(agent, 'selected_square', None)
+-        legal_sqs = getattr(agent, 'legal_squares',   None)
+-
+-        if isinstance(agent, HumanAgent) and agent.input_handler:
++        hover_sq = None
++        if isinstance(agent, HumanAgent) and agent.input_handler and promo_picker is None:
+             hover_sq = agent.input_handler.get_hovered_square()
+ 
+         self.renderer.render(
+             self.match.board,
+-            selected_square = selected,
+-            legal_squares   = legal_sqs,
+-            last_move       = self._last_move,
+-            hover_square    = hover_sq,
+-            moving_piece    = self._moving_piece,
+-            pulse_t         = self._pulse_t,
++            selected_square=selected,
++            legal_squares=legal_sqs,
++            last_move=self._last_move,
++            hover_square=hover_sq,
++            moving_piece=self._moving_piece,
++            pulse_t=self._pulse_t,
++            promotion_picker=promo_picker,
+         )
+ 
+         self._draw_top_bar()
+@@ -280,8 +265,8 @@ class Game:
+         self.screen.blit(turn_surf, (H_MARGIN, ty))
+ 
+         if self._ai_future is not None:
+-            n_dots   = int(self._thinking_t * 3) % 4
+-            think    = self._font_sm.render("Thinking" + "." * n_dots, True, TEXT_SEC)
++            n_dots = int(self._thinking_t * 3) % 4
++            think = self._font_sm.render("Thinking" + "." * n_dots, True, TEXT_SEC)
+             self.screen.blit(think, (H_MARGIN + turn_surf.get_width() + 14, ty + 3))
+ 
+     def _draw_side_panel(self) -> None:
+@@ -290,25 +275,24 @@ class Game:
+         panel_w = SIDE_PANEL_W
+         panel_h = BOARD_PX
+ 
+-        pygame.draw.rect(self.screen, BG_PANEL,
+-                         (panel_x, panel_y, panel_w, panel_h), border_radius=6)
++        pygame.draw.rect(self.screen, BG_PANEL, (panel_x, panel_y, panel_w, panel_h), border_radius=6)
+ 
+         label = self._font_sm.render("Moves", True, TEXT_SEC)
+         self.screen.blit(label, (panel_x + 12, panel_y + 12))
+ 
+-        san_pairs   = self._build_san_list()
+-        row_h       = 22
+-        content_y   = panel_y + 38
+-        max_y       = panel_y + panel_h - 10
+-        visible     = (max_y - content_y) // row_h
+-        start       = max(0, len(san_pairs) - visible)
++        san_pairs = self._build_san_list()
++        row_h = 22
++        content_y = panel_y + 38
++        max_y = panel_y + panel_h - 10
++        visible = (max_y - content_y) // row_h
++        start = max(0, len(san_pairs) - visible)
+ 
+         for idx, (w_san, b_san) in enumerate(san_pairs[start:]):
+-            num   = self._font_sm.render(f"{start + idx + 1}.", True, TEXT_SEC)
+-            white = self._font_sm.render(w_san,  True, TEXT_PRI)
+-            black = self._font_sm.render(b_san,  True, TEXT_PRI)
+-            self.screen.blit(num,   (panel_x + 10,  content_y))
+-            self.screen.blit(white, (panel_x + 38,  content_y))
++            num = self._font_sm.render(f"{start + idx + 1}.", True, TEXT_SEC)
++            white = self._font_sm.render(w_san, True, TEXT_PRI)
++            black = self._font_sm.render(b_san, True, TEXT_PRI)
++            self.screen.blit(num, (panel_x + 10, content_y))
++            self.screen.blit(white, (panel_x + 38, content_y))
+             self.screen.blit(black, (panel_x + 120, content_y))
+             content_y += row_h
+             if content_y > max_y:
+@@ -325,7 +309,6 @@ class Game:
+         overlay.fill((0, 0, 0, self._overlay_alpha))
+         self.screen.blit(overlay, (bx, by))
+ 
+-        # Wait until overlay is mostly opaque before showing text
+         if self._overlay_alpha < 170:
+             return
+ 
+@@ -341,26 +324,20 @@ class Game:
+             winner_text = "Black wins!"
+ 
+         title = self._font_lg.render(winner_text, True, TEXT_PRI)
+-        tx = bx + (BOARD_PX - title.get_width())  // 2
++        tx = bx + (BOARD_PX - title.get_width()) // 2
+         ty = by + BOARD_PX // 2 - title.get_height() - 30
+         self.screen.blit(title, (tx, ty))
+ 
+         reason = outcome.termination.name.replace("_", " ").title()
+         sub = self._font_sm.render(reason, True, TEXT_SEC)
+-        self.screen.blit(sub, (bx + (BOARD_PX - sub.get_width()) // 2,
+-                                ty + title.get_height() + 8))
++        self.screen.blit(sub, (bx + (BOARD_PX - sub.get_width()) // 2, ty + title.get_height() + 8))
+ 
+         self._btn_play_again.draw(self.screen)
+ 
+-    # ------------------------------------------------------------------
+-    # Helpers
+-    # ------------------------------------------------------------------
+-
+     def _build_san_list(self) -> list[tuple[str, str]]:
+-        """Replay the board's move stack to produce (white_san, black_san) pairs."""
+-        board  = chess.Board()
++        board = chess.Board()
+         pairs: list[tuple[str, str]] = []
+-        moves  = list(self.match.board.move_stack)
++        moves = list(self.match.board.move_stack)
+         i = 0
+         while i < len(moves):
+             w = board.san(moves[i])
+@@ -378,22 +355,22 @@ class Game:
+         input_handler = InputHandler(self.renderer)
+         for agent in (self.match.white_agent, self.match.black_agent):
+             if isinstance(agent, HumanAgent):
+-                agent.input_handler   = input_handler
++                agent.input_handler = input_handler
+                 agent.selected_square = None
+ 
+     def _reset(self) -> None:
+         self.match = Match(
+-            board       = chess.Board(),
+-            white_agent = self.match.white_agent,
+-            black_agent = self.match.black_agent,
++            board=chess.Board(),
++            white_agent=self.match.white_agent,
++            black_agent=self.match.black_agent,
+         )
+         self._connect_human_agents()
+-        self._last_move       = None
+-        self._moving_piece    = None
+-        self._ai_future       = None
++        self._last_move = None
++        self._moving_piece = None
++        self._ai_future = None
+         self._game_over_timer = 0.0
+-        self._overlay_alpha   = 0
+-        self._state           = "game"
++        self._overlay_alpha = 0
++        self._state = "game"
+ 
+     @staticmethod
+     def _load_font(assets_dir: str, size: int) -> pygame.font.Font:
+@@ -406,4 +383,4 @@ class Game:
+                 return pygame.font.SysFont(sysname, size)
+             except Exception:
+                 continue
+-        return pygame.font.Font(None, size)
+\ No newline at end of file
++        return pygame.font.Font(None, size)
+diff --git a/src/engine/ui/pygame/human_agent.py b/src/engine/ui/pygame/human_agent.py
+index 2ced3fd..cbac66e 100644
+--- a/src/engine/ui/pygame/human_agent.py
++++ b/src/engine/ui/pygame/human_agent.py
+@@ -1,52 +1,134 @@
+ import chess
++import pygame
++import pygame.locals as pg_locals
++
+ from engine.agents.interface import Agent
+ from engine.ui.pygame.input_handler import InputHandler
++from engine.ui.pygame.promotion_picker import PromotionPicker
+ 
+-class HumanAgent(Agent):
+-    """Human player.
+ 
+-    Owns the full interaction flow: click-to-select, click-to-move,
+-    selection state, and promotion. input_handler is injected by Game
+-    after pygame init.
+-    """
++class HumanAgent(Agent):
++    _IDLE = "idle"
++    _SELECTED = "piece_selected"
++    _PROMOTING = "awaiting_promo"
+ 
+-    def __init__(self):
++    def __init__(self) -> None:
+         self.input_handler: InputHandler | None = None
+         self.selected_square: int | None = None
+         self.legal_squares: list[int] | None = None
++        self.promotion_picker: PromotionPicker | None = None
++
++        self._state = self._IDLE
++        self._pending_move: chess.Move | None = None
+ 
+     def get_move(self, board: chess.Board) -> chess.Move | None:
+-        if self.input_handler is None:
++        if self.input_handler is None or self._state == self._PROMOTING:
+             return None
+ 
+         square = self.input_handler.get_clicked_square()
+         if square is None:
+             return None
+ 
+-        if self.selected_square is None:
+-            piece = board.piece_at(square)
+-            if piece is not None and piece.color == board.turn:
+-                self.selected_square = square
+-                self.legal_squares = list({m.to_square for m in board.legal_moves if m.from_square == square})
++        return self._process_click(square, board)
++
++    def handle_event(self, event: pygame.event.Event) -> chess.Move | None:
++        if self.input_handler is not None:
++            self.input_handler.handle_event(event)
++
++        if self._state != self._PROMOTING:
++            return None
++
++        if event.type == pygame.KEYDOWN and event.key == pg_locals.K_ESCAPE:
++            self._cancel_promotion()
+             return None
+ 
++        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
++            piece_type = self.promotion_picker.hit_test(event.pos) if self.promotion_picker is not None else None
++            if piece_type is not None:
++                return self._confirm_promotion(piece_type)
++            self._cancel_promotion()
++
++        return None
++
++    def _process_click(self, square: int, board: chess.Board) -> chess.Move | None:
++        if self._state == self._IDLE:
++            self._try_select(square, board)
++            return None
++
++        if self._state == self._SELECTED:
++            return self._try_move(square, board)
++
++        return None
++
++    def _try_select(self, square: int, board: chess.Board) -> None:
++        piece = board.piece_at(square)
++        if piece is not None and piece.color == board.turn:
++            self._select(square, board)
++
++    def _try_move(self, square: int, board: chess.Board) -> chess.Move | None:
+         piece = board.piece_at(square)
+         if piece is not None and piece.color == board.turn and square != self.selected_square:
+-            self.selected_square = square
+-            self.legal_squares = list({m.to_square for m in board.legal_moves if m.from_square == square})
++            self._select(square, board)
+             return None
+ 
+         source = self.selected_square
+-        self.selected_square = None
+-        self.legal_squares = None
++        self._deselect()
+ 
+-        move = chess.Move(source, square)
+-        if move in board.legal_moves:
+-            return move
++        plain = chess.Move(source, square)
++        if plain in board.legal_moves:
++            return plain
+ 
+-        # Auto-promote to queen (pawn reaching back rank)
+-        promo = chess.Move(source, square, promotion=chess.QUEEN)
+-        if promo in board.legal_moves:
+-            return promo
++        if self._is_promotion(source, square, board):
++            self._enter_promotion(source, square, board)
++            return None
+ 
+         return None
++
++    @staticmethod
++    def _is_promotion(source: int, dest: int, board: chess.Board) -> bool:
++        return any(
++            chess.Move(source, dest, promotion=pt) in board.legal_moves
++            for pt in (chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT)
++        )
++
++    def _enter_promotion(self, source: int, dest: int, board: chess.Board) -> None:
++        self._state = self._PROMOTING
++        self._pending_move = chess.Move(source, dest)
++
++        renderer = self.input_handler.renderer
++        self.promotion_picker = PromotionPicker(
++            to_square=dest,
++            color=board.turn,
++            square_size=renderer.get_square_size(),
++            board_offset_x=renderer.board_offset_x,
++            board_offset_y=renderer.board_offset_y,
++        )
++
++    def _confirm_promotion(self, piece_type: int) -> chess.Move:
++        move = chess.Move(
++            self._pending_move.from_square,
++            self._pending_move.to_square,
++            promotion=piece_type,
++        )
++        self._cleanup_promotion()
++        return move
++
++    def _cancel_promotion(self) -> None:
++        self._cleanup_promotion()
++
++    def _cleanup_promotion(self) -> None:
++        self._state = self._IDLE
++        self._pending_move = None
++        self.promotion_picker = None
++        self.selected_square = None
++        self.legal_squares = None
++
++    def _select(self, square: int, board: chess.Board) -> None:
++        self._state = self._SELECTED
++        self.selected_square = square
++        self.legal_squares = list({m.to_square for m in board.legal_moves if m.from_square == square})
++
++    def _deselect(self) -> None:
++        self._state = self._IDLE
++        self.selected_square = None
++        self.legal_squares = None
+diff --git a/src/engine/ui/pygame/input_handler.py b/src/engine/ui/pygame/input_handler.py
+index d9ae029..a08b778 100644
+--- a/src/engine/ui/pygame/input_handler.py
++++ b/src/engine/ui/pygame/input_handler.py
+@@ -1,30 +1,29 @@
+ import pygame
+ 
++
+ class InputHandler:
+-    """Raw input plumbing: click detection, hover detection, screen-to-square.
++    def __init__(self, renderer) -> None:
++        self.renderer = renderer
++        self._clicked_square = None
+ 
+-    Owns no game state. HumanAgent calls get_clicked_square() and owns
+-    the selection logic on top.
+-    """
++    def handle_event(self, event: pygame.event.Event) -> None:
++        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
++            square = self.get_square_at(event.pos)
++            if square is not None:
++                self._clicked_square = square
++
++    def get_clicked_square(self) -> int | None:
++        square = self._clicked_square
++        self._clicked_square = None
++        return square
++
++    def get_square_at(self, pos: tuple[int, int]) -> int | None:
++        mx, my = pos
++        return self.renderer.screen_to_square(mx, my)
+ 
+-    def __init__(self, renderer):
+-        self.renderer = renderer
+-        self._prev_mouse_pressed = False
+-        self._cached_square = None
+-        self._last_mouse_pos = None
+-    
+-    def _get_mouse_square(self):
+-        """Cache mouse position to avoid repeated system calls."""
+-        mx, my = pygame.mouse.get_pos()
+-        
+-        # Only recalculate if mouse moved
+-        if (mx, my) == self._last_mouse_pos:
+-            return self._cached_square
+-        
+-        self._last_mouse_pos = (mx, my)
+-        self._cached_square = self.renderer.screen_to_square(mx, my)
+-        return self._cached_square
+-    
+     def get_hovered_square(self) -> int | None:
+-        """Returns cached square."""
+-        return self._get_mouse_square()
++        mx, my = pygame.mouse.get_pos()
++        return self.renderer.screen_to_square(mx, my)
++
++    def get_mouse_pos(self) -> tuple[int, int]:
++        return pygame.mouse.get_pos()
+diff --git a/src/engine/ui/pygame/renderer.py b/src/engine/ui/pygame/renderer.py
+index f2f91d7..771f8c3 100644
+--- a/src/engine/ui/pygame/renderer.py
++++ b/src/engine/ui/pygame/renderer.py
+@@ -1,92 +1,56 @@
++from __future__ import annotations
++
+ import math
+ import os
++from typing import TYPE_CHECKING
+ 
+ import chess
+ import pygame
+ 
+ from engine.ui.pygame.piece import Piece
+ 
++if TYPE_CHECKING:
++    from engine.ui.pygame.promotion_picker import PromotionPicker
+ 
+-# ---------------------------------------------------------------------------
+-# Layout constants — change these to resize the whole UI
+-# ---------------------------------------------------------------------------
+-BOARD_PX      = 640          # board is always square
+-SIDE_PANEL_W  = 260          # move-history / captured panel on the right
+-H_MARGIN      = 20           # left & right outer margin
+-TOP_BAR_H     = 50           # player-name bar above the board
+-BOTTOM_BAR_H  = 50           # player-name bar below the board
+-WINDOW_W      = H_MARGIN + BOARD_PX + H_MARGIN + SIDE_PANEL_W + H_MARGIN   # 980
+-WINDOW_H      = TOP_BAR_H + BOARD_PX + BOTTOM_BAR_H                        # 740
+-
+-# ---------------------------------------------------------------------------
+-# Color palette
+-# ---------------------------------------------------------------------------
+ 
+-# ---------------------------------------------------------------------------
+-# Chess.com inspired theme
+-# ---------------------------------------------------------------------------
++BOARD_PX = 640
++SIDE_PANEL_W = 260
++H_MARGIN = 20
++TOP_BAR_H = 50
++BOTTOM_BAR_H = 50
++WINDOW_W = H_MARGIN + BOARD_PX + H_MARGIN + SIDE_PANEL_W + H_MARGIN
++WINDOW_H = TOP_BAR_H + BOARD_PX + BOTTOM_BAR_H
+ 
+-# Board
+ SQ_LIGHT = (238, 238, 210)
+-SQ_DARK  = (118, 150, 86)
++SQ_DARK = (118, 150, 86)
+ 
+ COORD_ON_LIGHT = SQ_DARK
+-COORD_ON_DARK  = SQ_LIGHT
++COORD_ON_DARK = SQ_LIGHT
+ 
+-# Overlays
+-COL_SELECTED  = (186, 202, 68, 150)
++COL_SELECTED = (186, 202, 68, 150)
+ COL_LAST_MOVE = (246, 246, 105, 95)
+-COL_CHECK     = (220, 50, 50, 170)
+-
++COL_CHECK = (220, 50, 50, 170)
+ COL_HOVER = (255, 255, 255, 24)
+-
+-COL_DOT  = (0, 0, 0, 65)
++COL_DOT = (0, 0, 0, 65)
+ COL_RING = (0, 0, 0, 65)
+ 
+-# UI chrome
+-BG_DARK  = (49, 46, 43)
++BG_DARK = (49, 46, 43)
+ BG_PANEL = (38, 36, 33)
+ 
+ TEXT_PRI = (245, 245, 245)
+ TEXT_SEC = (170, 170, 170)
+ 
+-ACCENT    = (129, 182, 76)
+-BTN_BG    = (129, 182, 76)
++ACCENT = (129, 182, 76)
++BTN_BG = (129, 182, 76)
+ BTN_HOVER = (149, 200, 90)
+-BTN_TEXT  = (255, 255, 255)
+-
+-# ---------------------------------------------------------------------------
+-# Lichess inspired theme
+-# ---------------------------------------------------------------------------
+-
+-# # Board
+-# SQ_LIGHT = (240, 217, 181)
+-# SQ_DARK  = (181, 136, 99)
+-
+-# COORD_ON_LIGHT = SQ_DARK
+-# COORD_ON_DARK  = SQ_LIGHT
+-
+-# # Overlays
+-# COL_SELECTED  = (76, 175, 80, 110)
+-# COL_LAST_MOVE = (205, 210, 106, 70)
+-# COL_CHECK     = (230, 70, 70, 150)
+-
+-# COL_HOVER = (255, 255, 255, 18)
++BTN_TEXT = (255, 255, 255)
+ 
+-# COL_DOT  = (0, 0, 0, 50)
+-# COL_RING = (0, 0, 0, 50)
+-
+-# # UI chrome
+-# BG_DARK  = (22, 21, 18)
+-# BG_PANEL = (32, 30, 27)
+-
+-# TEXT_PRI = (220, 220, 220)
+-# TEXT_SEC = (140, 140, 140)
+-
+-# ACCENT    = (90, 140, 220)
+-# BTN_BG    = (70, 110, 180)
+-# BTN_HOVER = (90, 130, 210)
+-# BTN_TEXT  = (255, 255, 255)
++_PROMO_VEIL_ALPHA = 135
++_PROMO_PANEL_BG = (28, 27, 24)
++_PROMO_PANEL_BORD = (75, 73, 68)
++_PROMO_CELL_NORMAL = (44, 42, 40)
++_PROMO_CELL_HOVER = (80, 130, 48)
++_PROMO_BORDER_RADIUS = 10
+ 
+ 
+ def _ease_out_cubic(t: float) -> float:
+@@ -96,22 +60,20 @@ def _ease_out_cubic(t: float) -> float:
+ def _lerp(a: float, b: float, t: float) -> float:
+     return a + (b - a) * t
+ 
++
+ def _lerp_color(c1: tuple, c2: tuple, t: float) -> tuple:
+     return tuple(int(_lerp(a, b, t)) for a, b in zip(c1, c2))
+ 
+ 
+-# ---------------------------------------------------------------------------
+-# MovingPiece  — lightweight animation state for a sliding piece
+-# ---------------------------------------------------------------------------
+ class MovingPiece:
+-    DURATION = 0.13   # seconds
++    DURATION = 0.13
+ 
+     def __init__(self, piece_name: str, from_sq: int, from_px: tuple, to_px: tuple):
+         self.piece_name = piece_name
+-        self.from_sq    = from_sq
+-        self.from_px    = from_px
+-        self.to_px      = to_px
+-        self.elapsed    = 0.0
++        self.from_sq = from_sq
++        self.from_px = from_px
++        self.to_px = to_px
++        self.elapsed = 0.0
+ 
+     @property
+     def done(self) -> bool:
+@@ -129,110 +91,84 @@ class MovingPiece:
+         self.elapsed = min(self.elapsed + dt, self.DURATION)
+ 
+ 
+-# ---------------------------------------------------------------------------
+-# PygameRenderer
+-# ---------------------------------------------------------------------------
+ class PygameRenderer:
+     def __init__(self, screen: pygame.Surface, assets_dir: str):
+         self.screen = screen
+-
+         self.board_offset_x = H_MARGIN
+         self.board_offset_y = TOP_BAR_H
+ 
+-        # --- board image ---
+         board_path = os.path.join(assets_dir, "board.png")
+         raw_board = pygame.image.load(board_path).convert()
+         self.board_img = pygame.transform.smoothscale(raw_board, (BOARD_PX, BOARD_PX))
+         self.square_size = BOARD_PX // 8
+ 
+-        # --- coordinate font (small, bundled fallback) ---
+         self._coord_font = pygame.font.SysFont("segoeui", 11, bold=True)
+-        
+-        # --- static cached board layer ---
+-        self.static_board_surface = pygame.Surface(
+-            (BOARD_PX, BOARD_PX)
+-        ).convert()
+ 
+-        # draw board image once
++        self.static_board_surface = pygame.Surface((BOARD_PX, BOARD_PX)).convert()
+         self.static_board_surface.blit(self.board_img, (0, 0))
+ 
+-        # draw coordinates once
+-        self._draw_coordinates_to(self.static_board_surface)
++        self._coord_surface = pygame.Surface((BOARD_PX, BOARD_PX), pygame.SRCALPHA)
++        self._draw_coordinates_to(self._coord_surface)
+ 
+-        # --- pieces ---
+         pieces_path = os.path.join(assets_dir, "pieces.png")
+         self.piece_renderer = Piece(pieces_path, cols=6, rows=2)
+-        self.piece_renderer.rescale(self.square_size)   # fit pieces to square size
++        self.piece_renderer.rescale(self.square_size)
+ 
+         self.piece_to_name = {
+-            'P': 'white_pawn',   'N': 'white_knight', 'B': 'white_bishop',
+-            'R': 'white_rook',   'Q': 'white_queen',  'K': 'white_king',
+-            'p': 'black_pawn',   'n': 'black_knight', 'b': 'black_bishop',
+-            'r': 'black_rook',   'q': 'black_queen',  'k': 'black_king',
++            'P': 'white_pawn', 'N': 'white_knight', 'B': 'white_bishop',
++            'R': 'white_rook', 'Q': 'white_queen', 'K': 'white_king',
++            'p': 'black_pawn', 'n': 'black_knight', 'b': 'black_bishop',
++            'r': 'black_rook', 'q': 'black_queen', 'k': 'black_king',
+         }
+ 
+-
+-        # --- pre-built overlay surfaces (avoids per-frame allocation) ---
+-        sq = self.square_size
+-        self._surf_selected  = self._solid_sq(COL_SELECTED)
++        self._surf_selected = self._solid_sq(COL_SELECTED)
+         self._surf_last_move = self._solid_sq(COL_LAST_MOVE)
+-        self._surf_check     = self._solid_sq(COL_CHECK)
+-        self._surf_hover     = self._solid_sq(COL_HOVER)
+-        self._surf_dot       = self._make_dot(filled=True)
+-        self._surf_ring      = self._make_dot(filled=False)
+-
+-    # ------------------------------------------------------------------
+-    # Public API
+-    # ------------------------------------------------------------------
++        self._surf_check = self._solid_sq(COL_CHECK)
++        self._surf_hover = self._solid_sq(COL_HOVER)
++        self._surf_dot = self._make_dot(filled=True)
++        self._surf_ring = self._make_dot(filled=False)
+ 
+     def render(
+         self,
+         board: chess.Board,
+         *,
+         selected_square: int | None = None,
+-        legal_squares:   list[int] | None = None,
+-        last_move:       chess.Move | None = None,
+-        hover_square:    int | None = None,
+-        moving_piece:    MovingPiece | None = None,
+-        pulse_t:         float = 0.0,
++        legal_squares: list[int] | None = None,
++        last_move: chess.Move | None = None,
++        hover_square: int | None = None,
++        moving_piece: MovingPiece | None = None,
++        pulse_t: float = 0.0,
++        promotion_picker: "PromotionPicker | None" = None,
+     ) -> None:
+-        """Draw the complete board frame.  All parameters are keyword-only
+-        so callers are explicit about what they pass."""
++        bx = self.board_offset_x
++        by = self.board_offset_y
+ 
+-        # Layer 0 – board image
+-        self.screen.blit(
+-            self.static_board_surface,
+-            (self.board_offset_x, self.board_offset_y)
+-        )
++        self.screen.blit(self.static_board_surface, (bx, by))
+ 
+-        # Layer 1 – last-move highlight (faint, always on)
+         if last_move is not None:
+             self._draw_last_move(last_move)
+ 
+-        # Layer 2 – check highlight (red king square, drawn under piece)
+         if board.is_check():
+             self._draw_check(board)
+ 
+-        # Layer 3 – selection highlight (pulsing)
+-        if selected_square is not None:
+-            self._draw_selection(selected_square, pulse_t)
++        if promotion_picker is None:
++            if selected_square is not None:
++                self._draw_selection(selected_square, pulse_t)
++            if hover_square is not None:
++                self._draw_hover(hover_square, board)
++            if legal_squares:
++                self._draw_legal_dots(board, legal_squares)
+ 
+-        # Layer 4 – hover (own-piece squares only)
+-        if hover_square is not None:
+-            self._draw_hover(hover_square, board)
+-
+-        # Layer 5 – legal move dots / capture rings
+-        if legal_squares:
+-            self._draw_legal_dots(board, legal_squares)
+-
+-        # Layer 6 – all pieces except the one currently flying
+         skip_sq = moving_piece.from_sq if (moving_piece and not moving_piece.done) else None
+         self._draw_all_pieces(board, skip_square=skip_sq)
+ 
+-        # Layer 7 – animating piece on top of everything
+         if moving_piece and not moving_piece.done:
+-            self.piece_renderer.draw(self.screen, moving_piece.piece_name,
+-                                     moving_piece.current_px)
++            self.piece_renderer.draw(self.screen, moving_piece.piece_name, moving_piece.current_px)
++
++        self.screen.blit(self._coord_surface, (bx, by))
++
++        if promotion_picker is not None:
++            self._draw_promotion_picker(promotion_picker)
+ 
+     def get_square_size(self) -> int:
+         return self.square_size
+@@ -250,9 +186,42 @@ class PygameRenderer:
+     def square_to_screen(self, square: int) -> tuple[int, int]:
+         return self._square_to_screen(square)
+ 
+-    # ------------------------------------------------------------------
+-    # Private helpers
+-    # ------------------------------------------------------------------
++    def _draw_promotion_picker(self, picker: "PromotionPicker") -> None:
++        bx = self.board_offset_x
++        by = self.board_offset_y
++        mouse_pos = pygame.mouse.get_pos()
++
++        veil = pygame.Surface((BOARD_PX, BOARD_PX), pygame.SRCALPHA)
++        veil.fill((0, 0, 0, _PROMO_VEIL_ALPHA))
++        self.screen.blit(veil, (bx, by))
++
++        bounds = picker.bounding_rect()
++        pad = 5
++        panel = bounds.inflate(pad * 2, pad * 2)
++
++        for offset, alpha in ((5, 55), (3, 75)):
++            shadow = pygame.Surface((panel.width, panel.height), pygame.SRCALPHA)
++            pygame.draw.rect(
++                shadow,
++                (0, 0, 0, alpha),
++                shadow.get_rect(),
++                border_radius=_PROMO_BORDER_RADIUS,
++            )
++            self.screen.blit(shadow, (panel.x + offset, panel.y + offset))
++
++        pygame.draw.rect(self.screen, _PROMO_PANEL_BG, panel, border_radius=_PROMO_BORDER_RADIUS)
++        pygame.draw.rect(self.screen, _PROMO_PANEL_BORD, panel, width=1, border_radius=_PROMO_BORDER_RADIUS)
++
++        for choice in picker.choices:
++            hovered = choice.rect.collidepoint(mouse_pos)
++            cell_color = _PROMO_CELL_HOVER if hovered else _PROMO_CELL_NORMAL
++
++            inner = choice.rect.inflate(-pad * 2, -pad * 2)
++            pygame.draw.rect(self.screen, cell_color, inner, border_radius=_PROMO_BORDER_RADIUS - 2)
++            self.piece_renderer.draw(self.screen, choice.piece_name, choice.rect.topleft)
++
++            if hovered:
++                pygame.draw.rect(self.screen, (220, 220, 220), inner, width=2, border_radius=_PROMO_BORDER_RADIUS - 2)
+ 
+     def _square_to_screen(self, square: int) -> tuple[int, int]:
+         file = chess.square_file(square)
+@@ -262,20 +231,19 @@ class PygameRenderer:
+         return (x, y)
+ 
+     def _solid_sq(self, rgba: tuple) -> pygame.Surface:
+-        s = pygame.Surface((self.square_size, self.square_size), pygame.SRCALPHA)
+-        s.fill(rgba)
+-        return s
++        surface = pygame.Surface((self.square_size, self.square_size), pygame.SRCALPHA)
++        surface.fill(rgba)
++        return surface
+ 
+     def _make_dot(self, filled: bool) -> pygame.Surface:
+-        sq  = self.square_size
+-        s   = pygame.Surface((sq, sq), pygame.SRCALPHA)
++        sq = self.square_size
++        surface = pygame.Surface((sq, sq), pygame.SRCALPHA)
+         half = sq // 2
+         if filled:
+-            radius = sq // 5
+-            pygame.draw.circle(s, COL_DOT, (half, half), radius)
++            pygame.draw.circle(surface, COL_DOT, (half, half), sq // 5)
+         else:
+-            pygame.draw.circle(s, COL_RING, (half, half), half - 3, 5)
+-        return s
++            pygame.draw.circle(surface, COL_RING, (half, half), half - 3, 5)
++        return surface
+ 
+     def _draw_last_move(self, move: chess.Move) -> None:
+         for sq in (move.from_square, move.to_square):
+@@ -287,7 +255,6 @@ class PygameRenderer:
+             self.screen.blit(self._surf_check, self._square_to_screen(king_sq))
+ 
+     def _draw_selection(self, square: int, pulse_t: float) -> None:
+-        # Animate alpha with a slow sine pulse so the selection "breathes"
+         alpha = int(100 + 50 * math.sin(pulse_t * math.pi * 2.5))
+         surf = self._surf_selected.copy()
+         surf.set_alpha(alpha)
+@@ -318,23 +285,14 @@ class PygameRenderer:
+     def _draw_coordinates_to(self, target: pygame.Surface) -> None:
+         files = "abcdefgh"
+         sq = self.square_size
+-
+         for i in range(8):
+-            # File labels
+             on_light = (i % 2 == 0)
+ 
+             f_color = COORD_ON_LIGHT if on_light else COORD_ON_DARK
+             f_surf = self._coord_font.render(files[i], True, f_color)
++            target.blit(f_surf, (i * sq + sq - f_surf.get_width() - 3, 8 * sq - f_surf.get_height() - 2))
+ 
+-            fx = i * sq + sq - f_surf.get_width() - 3
+-            fy = 8 * sq - f_surf.get_height() - 2
+-
+-            target.blit(f_surf, (fx, fy))
+-
+-            # Rank labels
+             r_on_light = ((7 - i) % 2 == 0)
+-
+             r_color = COORD_ON_LIGHT if r_on_light else COORD_ON_DARK
+             r_surf = self._coord_font.render(str(8 - i), True, r_color)
+-
+-            target.blit(r_surf, (3, i * sq + 3))
+\ No newline at end of file
++            target.blit(r_surf, (3, i * sq + 3))

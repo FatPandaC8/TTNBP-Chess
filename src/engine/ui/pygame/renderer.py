@@ -5,7 +5,7 @@ import chess
 import pygame
 
 from engine.ui.pygame.piece import Piece
-
+from engine.ui.pygame.promotion_picker import PromotionPicker
 
 # ---------------------------------------------------------------------------
 # Layout constants — change these to resize the whole UI
@@ -55,39 +55,12 @@ BTN_BG    = (129, 182, 76)
 BTN_HOVER = (149, 200, 90)
 BTN_TEXT  = (255, 255, 255)
 
-# ---------------------------------------------------------------------------
-# Lichess inspired theme
-# ---------------------------------------------------------------------------
-
-# # Board
-# SQ_LIGHT = (240, 217, 181)
-# SQ_DARK  = (181, 136, 99)
-
-# COORD_ON_LIGHT = SQ_DARK
-# COORD_ON_DARK  = SQ_LIGHT
-
-# # Overlays
-# COL_SELECTED  = (76, 175, 80, 110)
-# COL_LAST_MOVE = (205, 210, 106, 70)
-# COL_CHECK     = (230, 70, 70, 150)
-
-# COL_HOVER = (255, 255, 255, 18)
-
-# COL_DOT  = (0, 0, 0, 50)
-# COL_RING = (0, 0, 0, 50)
-
-# # UI chrome
-# BG_DARK  = (22, 21, 18)
-# BG_PANEL = (32, 30, 27)
-
-# TEXT_PRI = (220, 220, 220)
-# TEXT_SEC = (140, 140, 140)
-
-# ACCENT    = (90, 140, 220)
-# BTN_BG    = (70, 110, 180)
-# BTN_HOVER = (90, 130, 210)
-# BTN_TEXT  = (255, 255, 255)
-
+PROMO_VEIL_ALPHA = 135
+PROMO_PANEL_BG = (28, 27, 24)
+PROMO_PANEL_BORD = (75, 73, 68)
+PROMO_CELL_NORMAL = (44, 42, 40)
+PROMO_CELL_HOVER = (80, 130, 48)
+PROMO_BORDER_RADIUS = 10
 
 def _ease_out_cubic(t: float) -> float:
     return 1.0 - (1.0 - t) ** 3
@@ -195,6 +168,7 @@ class PygameRenderer:
         hover_square:    int | None = None,
         moving_piece:    MovingPiece | None = None,
         pulse_t:         float = 0.0,
+        promotion_picker: PromotionPicker | None = None,
     ) -> None:
         """Draw the complete board frame.  All parameters are keyword-only
         so callers are explicit about what they pass."""
@@ -236,6 +210,10 @@ class PygameRenderer:
         # Layer 8 – coordinates (thêm vào)
         self.screen.blit(self._coord_surface, (self.board_offset_x, self.board_offset_y))
 
+        # Promotion
+        if promotion_picker is not None:
+            self._draw_promotion_picker(promotion_picker)
+
 
     def get_square_size(self) -> int:
         return self.square_size
@@ -256,6 +234,44 @@ class PygameRenderer:
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
+
+    def _draw_promotion_picker(self, picker: PromotionPicker) -> None:
+        bx = self.board_offset_x
+        by = self.board_offset_y
+        mouse_pos = pygame.mouse.get_pos()
+
+        veil = pygame.Surface((BOARD_PX, BOARD_PX), pygame.SRCALPHA)
+        veil.fill((0, 0, 0, PROMO_VEIL_ALPHA))
+        self.screen.blit(veil, (bx, by))
+
+        bounds = picker.bounding_rect()
+        pad = 5
+        panel = bounds.inflate(pad * 2, pad * 2)
+
+        for offset, alpha in ((5, 55), (3, 75)):
+            shadow = pygame.Surface((panel.width, panel.height), pygame.SRCALPHA)
+            pygame.draw.rect(
+                shadow,
+                (0, 0, 0, alpha),
+                shadow.get_rect(),
+                border_radius=PROMO_BORDER_RADIUS,
+            )
+            self.screen.blit(shadow, (panel.x + offset, panel.y + offset))
+
+        pygame.draw.rect(self.screen, PROMO_PANEL_BG, panel, border_radius=PROMO_BORDER_RADIUS)
+        pygame.draw.rect(self.screen, PROMO_PANEL_BORD, panel, width=1, border_radius=PROMO_BORDER_RADIUS)
+
+        for choice in picker.choices:
+            hovered = choice.rect.collidepoint(mouse_pos)
+            cell_color = PROMO_CELL_HOVER if hovered else PROMO_CELL_NORMAL
+
+            inner = choice.rect.inflate(-pad * 2, -pad * 2)
+            pygame.draw.rect(self.screen, cell_color, inner, border_radius=PROMO_BORDER_RADIUS - 2)
+            self.piece_renderer.draw(self.screen, choice.piece_name, choice.rect.topleft)
+
+            if hovered:
+                pygame.draw.rect(self.screen, (220, 220, 220), inner, width=2, border_radius=PROMO_BORDER_RADIUS - 2)
+
 
     def _square_to_screen(self, square: int) -> tuple[int, int]:
         file = chess.square_file(square)

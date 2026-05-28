@@ -1,29 +1,31 @@
 import pygame
 
 class InputHandler:
-    """Raw input plumbing: click detection, hover detection, screen-to-square.
-
-    Owns no game state. HumanAgent calls get_clicked_square() and owns
-    the selection logic on top.
-    """
-
-    def __init__(self, renderer):
+    def __init__(self, renderer) -> None:
         self.renderer = renderer
-        self._prev_mouse_pressed = False
+        self._clicked_square = None
+
+    def handle_event(self, event: pygame.event.Event) -> None:
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            square = self.get_square_at(event.pos)
+            if square is not None:
+                self._clicked_square = square
 
     def get_clicked_square(self) -> int | None:
-        """Returns the board square under a fresh left-click, or None."""
-        mouse_btn = pygame.mouse.get_pressed()
-        clicked = mouse_btn[0] and not self._prev_mouse_pressed
-        self._prev_mouse_pressed = mouse_btn[0]
+        square = self._clicked_square
+        self._clicked_square = None
+        return square
 
-        if not clicked:
-            return None
+    def clear_clicked_square(self) -> None:
+        self._clicked_square = None
 
-        mx, my = pygame.mouse.get_pos()
+    def get_square_at(self, pos: tuple[int, int]) -> int | None:
+        mx, my = pos
         return self.renderer.screen_to_square(mx, my)
 
     def get_hovered_square(self) -> int | None:
-        """Returns the board square currently under the mouse, or None."""
         mx, my = pygame.mouse.get_pos()
         return self.renderer.screen_to_square(mx, my)
+
+    def get_mouse_pos(self) -> tuple[int, int]:
+        return pygame.mouse.get_pos()
