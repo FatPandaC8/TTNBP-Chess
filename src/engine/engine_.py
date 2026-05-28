@@ -6,7 +6,7 @@ from engine.utils.logger import Logger
 from engine.agents.ai_agent import AIAgent
 from engine.game.match import Match
 from engine.evaluation.eval import Evaluator
-# from engine.evaluation.eval_stockfish_like import StockfishLikeEvaluator
+from engine.evaluation.eval_stockfish_like import StockfishLikeEvaluator
 # from engine.evaluation.eval_pst_only import PSTOnlyEvaluator
 from engine.search.algorithms.bach.search import SimpleSearcher
 from engine.utils.decorators import timer_decorator
@@ -19,7 +19,7 @@ class Engine:
         self.logger = Logger()
 
         # Agent #1 (White): Stockfish-like PST + positional terms
-        # evaluator_stockfish_like = StockfishLikeEvaluator()
+        evaluator_stockfish_like = StockfishLikeEvaluator()
 
         # Agent #2 (Black): PST + Material
         evaluator_full = Evaluator()
@@ -27,7 +27,7 @@ class Engine:
         # Kept for quick A/B testing if needed.
         # evaluator_pst_only = PSTOnlyEvaluator()
 
-        time_limit: float = 1.5
+        time_limit: float = 0.5
 
         main_tt = TranspositionTable(size=1_000_000)
         
@@ -40,7 +40,7 @@ class Engine:
                     tt=main_tt
                 )
             )
-            .with_depth(12)
+            .with_depth(40)
         )
 
         # self.white_agent = (
@@ -48,13 +48,13 @@ class Engine:
         #     .with_search(
         #         Searcher(evaluator=evaluator_full, logger=self.logger)
         #     )
-        #     .with_depth(3)
+        #     .with_depth(20)
         # )
 
         self.black_agent = (
             AIAgent("#2", time_limit)
             .with_search(BasicSearcher(evaluator=evaluator_full, logger=self.logger))
-            .with_depth(12)
+            .with_depth(20)
         )
 
     def _make_match(self) -> Match:
