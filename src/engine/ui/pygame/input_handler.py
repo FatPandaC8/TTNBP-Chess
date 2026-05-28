@@ -10,21 +10,20 @@ class InputHandler:
     def __init__(self, renderer):
         self.renderer = renderer
         self._prev_mouse_pressed = False
-        self._cached_square = None
-        self._last_mouse_pos = None
-    
-    def _get_mouse_square(self):
-        """Cache mouse position to avoid repeated system calls."""
+
+    def get_clicked_square(self) -> int | None:
+        """Returns the board square under a fresh left-click, or None."""
+        mouse_btn = pygame.mouse.get_pressed()
+        clicked = mouse_btn[0] and not self._prev_mouse_pressed
+        self._prev_mouse_pressed = mouse_btn[0]
+
+        if not clicked:
+            return None
+
         mx, my = pygame.mouse.get_pos()
-        
-        # Only recalculate if mouse moved
-        if (mx, my) == self._last_mouse_pos:
-            return self._cached_square
-        
-        self._last_mouse_pos = (mx, my)
-        self._cached_square = self.renderer.screen_to_square(mx, my)
-        return self._cached_square
-    
+        return self.renderer.screen_to_square(mx, my)
+
     def get_hovered_square(self) -> int | None:
-        """Returns cached square."""
-        return self._get_mouse_square()
+        """Returns the board square currently under the mouse, or None."""
+        mx, my = pygame.mouse.get_pos()
+        return self.renderer.screen_to_square(mx, my)
