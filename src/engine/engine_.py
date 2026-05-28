@@ -1,6 +1,6 @@
 import chess
 from engine.search.algorithms.bach.tt import TranspositionTable
-# from engine.ui.pygame.human_agent import HumanAgent
+from engine.ui.pygame.human_agent import HumanAgent
 # from engine.ui.pygame.input_handler import InputHandler
 from engine.utils.logger import Logger
 from engine.agents.ai_agent import AIAgent
@@ -60,9 +60,8 @@ class Engine:
     def _make_match(self) -> Match:
         return Match(
             board=chess.Board(),
-            # white_agent=HumanAgent(),
-            white_agent=self.white_agent,
-            black_agent=self.black_agent,
+            white_agent=HumanAgent(),
+            black_agent=HumanAgent()
         )
 
     @timer_decorator

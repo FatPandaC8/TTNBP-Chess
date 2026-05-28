@@ -1,7 +1,7 @@
 import chess
 import chess.polyglot
 import time
-from concurrent.futures import ProcessPoolExecutor, wait, ALL_COMPLETED
+from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
 from engine.search.algorithms.bach.entry import EXACT, LOWER, UPPER, TTEntry
 from engine.search.algorithms.bach.tt import TranspositionTable
 from engine.search.interface import BaseSearch
@@ -44,11 +44,10 @@ class _WorkerSearcher:
             raise TimeoutError
 
     def _eval(self, board: chess.Board) -> float:
-        return self.evaluator.evaluate(board)   # always from White's perspective
+        return self.evaluator.evaluate(board)
 
     def _terminal(self, board: chess.Board) -> float | None:
         if board.is_checkmate():
-            # the side that just moved delivered mate — that side wins
             score = MATE_SCORE - (len(board.move_stack) - self.root_ply)
             return -score if board.turn == chess.WHITE else score
         if (board.is_stalemate()
@@ -65,7 +64,6 @@ class _WorkerSearcher:
         alpha_orig = alpha
         key = _zobrist_hash(board)
 
-        # TT probe
         tt_score, alpha, beta = self.tt.lookup(key, depth, alpha, beta)
         if tt_score is not None:
             return tt_score
@@ -129,10 +127,12 @@ class SimpleSearcher(BaseSearch):
         fen      = board.fen()
         root_key = _zobrist_hash(board)
 
-        best_score: float           = -INF
-        best_move:  chess.Move      = moves[0]
+        best_score: float      = -INF
+        best_move:  chess.Move = moves[0]
 
-        with ProcessPoolExecutor() as pool:
+        max_workers = min(len(moves), 8)
+
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
             for curr_depth in range(1, depth + 1):
                 if self.timer.should_stop():
                     break
@@ -156,7 +156,7 @@ class SimpleSearcher(BaseSearch):
                 for f in pending:
                     f.cancel()
 
-                iter_best_score: float           = -INF
+                iter_best_score: float            = -INF
                 iter_best_move:  chess.Move | None = None
 
                 for future in done:
