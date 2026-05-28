@@ -156,8 +156,8 @@ class PygameRenderer:
         # draw board image once
         self.static_board_surface.blit(self.board_img, (0, 0))
 
-        # draw coordinates once
-        self._draw_coordinates_to(self.static_board_surface)
+        self._coord_surface = pygame.Surface((BOARD_PX, BOARD_PX), pygame.SRCALPHA)
+        self._draw_coordinates_to(self._coord_surface)
 
         # --- pieces ---
         pieces_path = os.path.join(assets_dir, "pieces.png")
@@ -231,8 +231,11 @@ class PygameRenderer:
 
         # Layer 7 – animating piece on top of everything
         if moving_piece and not moving_piece.done:
-            self.piece_renderer.draw(self.screen, moving_piece.piece_name,
-                                     moving_piece.current_px)
+            self.piece_renderer.draw(self.screen, moving_piece.piece_name, moving_piece.current_px)
+
+        # Layer 8 – coordinates (thêm vào)
+        self.screen.blit(self._coord_surface, (self.board_offset_x, self.board_offset_y))
+
 
     def get_square_size(self) -> int:
         return self.square_size

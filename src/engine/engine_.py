@@ -1,6 +1,6 @@
 import chess
 from engine.search.algorithms.bach.tt import TranspositionTable
-# from engine.ui.pygame.human_agent import HumanAgent
+from engine.ui.pygame.human_agent import HumanAgent
 # from engine.ui.pygame.input_handler import InputHandler
 from engine.utils.logger import Logger
 from engine.agents.ai_agent import AIAgent
@@ -8,7 +8,7 @@ from engine.game.match import Match
 from engine.evaluation.eval import Evaluator
 # from engine.evaluation.eval_stockfish_like import StockfishLikeEvaluator
 # from engine.evaluation.eval_pst_only import PSTOnlyEvaluator
-from engine.search.algorithms.bach.search import SimpleSearcher
+# from engine.search.algorithms.bach.search import SimpleSearcher
 from engine.utils.decorators import timer_decorator
 from engine.search.algorithms.thanh.search import BasicSearcher
 from engine.search.algorithms.nhuan.search import NhuanSearch
@@ -34,10 +34,10 @@ class Engine:
         self.white_agent = (
             AIAgent("#1", time_limit)
             .with_search(
-                SimpleSearcher(
+                Searcher(
                     evaluator=evaluator_full,
                     logger=self.logger,
-                    tt=main_tt
+                    # tt=main_tt
                 )
             )
             .with_depth(12)
@@ -60,9 +60,10 @@ class Engine:
     def _make_match(self) -> Match:
         return Match(
             board=chess.Board(),
-            # white_agent=HumanAgent(),
-            white_agent=self.white_agent,
-            black_agent=self.black_agent,
+            white_agent=HumanAgent(),
+            # white_agent=self.white_agent,
+            # black_agent=self.black_agent,
+            black_agent=HumanAgent()
         )
 
     @timer_decorator
